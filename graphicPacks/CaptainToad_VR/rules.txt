@@ -1,0 +1,6 @@
+[Definition]
+titleIds = 0005000010180700
+name = Captain Toad: Treasure Tracker VR
+path = "Captain Toad Treasure Tracker/VR"
+description = Stereo VR with head tracking, VR controllers as the GamePad, the right controller as the touch pen, and X to step through diorama, a close diorama at half distance, and first person. EUR update v16 only.
+version = 7
