@@ -23,6 +23,9 @@ been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Controls
 
+- In first person, the touch-hand marker for the right VR controller's pointing
+  direction is not visible, so enemies cannot be targeted for touch-stunning
+  with the right trigger. A first-person touch-aiming interaction is still needed.
 - Touch has been tested on lifts and movable platforms: pointing with the
   right VR controller, and choosing with Y and the D-pad, on the pad or with
   the VR controllers' D-pad emulation; other touch interactions are
