@@ -43,8 +43,7 @@ been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 ## First person
 
 - HUD elements stay anchored in the room and can move out of view as you turn.
-- Parts of Toad can remain visible in some scenes, and the camera can clip
-  into nearby geometry.
+- The camera can clip into nearby geometry.
 - Fixed cameras, rides and cinematics may produce awkward framing.
 
 ## Compatibility
