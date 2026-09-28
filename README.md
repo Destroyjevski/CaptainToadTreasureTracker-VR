@@ -44,7 +44,7 @@ controllers as the GamePad, touch screen included.
   touches it.
 
 See [release notes](RELEASE_NOTES.md) for details and [installation](INSTALL.md)
-for controller bindings. Shadows and depth effects have limitations;
+for controller bindings. Rendering and controls still have limitations;
 see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
