@@ -140,15 +140,15 @@ gamepad table above. Other controller layouts have not been validated.
 See [INSTALL.md](INSTALL.md#controls) for the full bindings and separate
 gamepad and VR-controller instructions.
 
-### The touch hand and the crosshair
+### The touch hand, stun fist and crosshair
 
-Two symbols of this mod stand in for the GamePad's touch screen. They are
+Three symbols of this mod stand in for the GamePad's touch screen. They are
 drawn in the room by the VR layer, at the depth of the spot they mark, and
 only while they are in use.
 
-| <img src="docs/touch-hand.png" width="128" alt="The touch hand"> | <img src="docs/crosshair.png" width="128" alt="The crosshair"> |
-| --- | --- |
-| **Touch hand:** marks the touch point or the selected lift/platform. | **Crosshair:** shows the direction of aim in the minecart. |
+| <img src="docs/touch-hand.png" width="128" alt="The touch hand"> | <img src="docs/stun-fist.png" width="128" alt="The stun fist"> | <img src="docs/crosshair.png" width="128" alt="The crosshair"> |
+| --- | --- | --- |
+| **Touch hand:** marks the touch point or the selected lift/platform. | **Stun fist:** marks a recognized enemy target for touch-stunning in every camera mode. It indicates the target, not a confirmed stun. | **Crosshair:** shows the direction of aim in the minecart. |
 
 With a gamepad, hold **Y** and use **D-pad left/right** to choose a nearby
 lift or platform, then release Y to touch it. With VR controllers, point
@@ -165,7 +165,7 @@ the minecart keeps its crosshair. The fist indicates the target, not stun succes
 In the minecart, aim with the gamepad's right stick or the right VR
 controller. In first person, hold gamepad Y to aim with the stick.
 
-Both are this project's own artwork; the originals are under `core/assets/`.
+All three are this project's own artwork; the originals are under `core/assets/`.
 See [INSTALL.md](INSTALL.md#the-touch-hand-and-the-crosshair) for the details.
 
 ## Frame rate
