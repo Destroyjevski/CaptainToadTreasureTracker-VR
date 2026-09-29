@@ -59,7 +59,7 @@ function IsOurEntry($entry) {
 }
 
 Say ''
-Say ('Captain Toad: Treasure Tracker VR - Alpha 1.0 - ' + $modeName)
+Say ('Captain Toad: Treasure Tracker VR - Alpha 1.1 - ' + $modeName)
 Say '-----------------------------------------------'
 
 # --- the package itself -----------------------------------------------------

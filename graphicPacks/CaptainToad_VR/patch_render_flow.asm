@@ -1,5 +1,5 @@
 [CaptainToad_VR_V16]
-moduleMatches = 0x1B377483
+moduleMatches = 0x1B377483, 0x9E0461E7, 0x0576A725
 .origin = codecave
 ; Stereo render flow: two drawings from one calculated simulation state.
 rrFlowHeader:
@@ -2176,6 +2176,13 @@ lis r7, tpPointer@ha
 addi r7, r7, tpPointer@l
 li r0, 0
 stw r0, 104(r7)
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 48(r7)
+cmpwi r0, 0
+bne tpFpTrackingPresent
+stw r0, 0(r11)
+tpFpTrackingPresent:
 lwz r0, 48(r7)
 cmpwi r0, 0
 beq tpRayWorldDone
@@ -2224,7 +2231,140 @@ lwz r0, 8(r11)
 stw r0, 100(r7)
 li r0, 1
 stw r0, 104(r7)
+; First-person pen uses the same finished rotation as the cart ray.
+lis r11, tfEyeAnchor@ha
+addi r11, r11, tfEyeAnchor@l
+lwz r0, 12(r11)
+cmpwi r0, 1
+bne tpFpRenderOff
+lis r11, mtPad@ha
+addi r11, r11, mtPad@l
+lwz r0, 0(r11)
+cmpwi r0, 0
+beq tpFpRenderInvalid
+lwz r0, 88(r11)
+cmpwi r0, 0
+beq tpFpRenderInvalid
+lis r11, rrEye@ha
+lwz r0, rrEye@l(r11)
+cmpwi r0, 0
+bne tpFpRenderCursor
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+li r0, 0
+stw r0, 0(r11)
+lfs f0, 128(r7)
+lfs f1, 88(r7)
+fmuls f1, f1, f1
+fadds f0, f0, f1
+lfs f1, 92(r7)
+fmuls f1, f1, f1
+fadds f0, f0, f1
+lfs f1, 96(r7)
+fmuls f1, f1, f1
+fadds f0, f0, f1
+fcmpu cr0, f0, f0
+bne tpFpRenderInvalid
+lfs f1, 68(r11)
+fcmpu cr0, f0, f1
+blt tpFpRenderInvalid
+lfs f1, 72(r11)
+fcmpu cr0, f0, f1
+bgt tpFpRenderInvalid
+lfs f0, 52(r9)
+stfs f0, 8(r11)
+lfs f1, 88(r7)
+lfs f2, 56(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 20(r11)
+lfs f2, 64(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 32(r11)
+lfs f2, 60(r11)
+fmuls f2, f1, f2
+stfs f2, 44(r11)
+lfs f0, 56(r9)
+stfs f0, 12(r11)
+lfs f1, 92(r7)
+lfs f2, 56(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 24(r11)
+lfs f2, 64(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 36(r11)
+lfs f2, 60(r11)
+fmuls f2, f1, f2
+stfs f2, 48(r11)
+lfs f0, 60(r9)
+stfs f0, 16(r11)
+lfs f1, 96(r7)
+lfs f2, 56(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 28(r11)
+lfs f2, 64(r11)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 40(r11)
+lfs f2, 60(r11)
+fmuls f2, f1, f2
+stfs f2, 52(r11)
+lwz r0, 100(r7)
+stw r0, 4(r11)
+li r0, 1
+stw r0, 0(r11)
+tpFpRenderCursor:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne tpFpRenderInvalid
+lwz r0, 20(r11)
+stw r0, 68(r7)
+lwz r0, 24(r11)
+stw r0, 72(r7)
+lwz r0, 28(r11)
+stw r0, 76(r7)
+lwz r0, 8(r7)
+stw r0, 80(r7)
+lwz r0, 100(r7)
+stw r0, 84(r7)
+b tpFpRenderDone
+tpFpRenderInvalid:
+li r0, 0
+stw r0, 80(r7)
+tpFpRenderOff:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+li r0, 0
+stw r0, 0(r11)
+tpFpRenderDone:
 tpRayWorldDone:
+lis r11, rrEye@ha
+lwz r0, rrEye@l(r11)
+cmpwi r0, 0
+bne smEyeDone
+lis r11, smEye@ha
+addi r11, r11, smEye@l
+li r0, 1
+stw r0, 0(r11)
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 8(r12)
+stw r0, 4(r11)
+lwz r0, 0x90(r12)
+stw r0, 8(r11)
+lwz r0, 52(r9)
+stw r0, 12(r11)
+lwz r0, 56(r9)
+stw r0, 16(r11)
+lwz r0, 60(r9)
+stw r0, 20(r11)
+smEyeDone:
 lis r12, rrSlot@ha
 lwz r11, rrSlot@l(r12)
 mulli r11, r11, 2
@@ -2255,6 +2395,33 @@ lwz r0, 0x0C(r7)
 stw r0, 4(r12)
 li r0, 1
 stw r0, 24(r12)
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 4(r11)
+cmpwi r0, 1
+bne smCartFallback
+lwz r0, 16(r11)
+cmpwi r0, 1
+bne smCartFallback
+lwz r0, 12(r11)
+lwz r11, 0x90(r8)
+cmpw r0, r11
+bne smCartFallback
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 8(r11)
+lwz r11, 8(r8)
+subf r11, r0, r11
+cmplwi r11, 1
+bgt smCartFallback
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+
+lis r8, smHit@ha
+addi r8, r8, smHit@l
+addi r8, r8, -64 ; point read at +96 is smHit+32
+b xtMarkerHaveTarget
+smCartFallback:
 addi r8, r7, -0x34 ; existing point read at +60 now refers to ctAim+2C
 b xtMarkerHaveTarget
 ctAimMarkerFallback:
@@ -2280,6 +2447,39 @@ stw r0, 24(r12)
 lwz r11, 168(r7)
 addi r11, r11, 1
 stw r11, 168(r7)
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 4(r11)
+cmpwi r0, 1
+bne smHandFallback
+lwz r0, 16(r11)
+cmpwi r0, 0
+bne smHandFallback
+lwz r0, 12(r11)
+lwz r11, 0x90(r8)
+cmpw r0, r11
+bne smHandFallback
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 8(r11)
+lwz r11, 8(r8)
+subf r11, r0, r11
+cmplwi r11, 1
+bgt smHandFallback
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 116(r11)
+cmpwi r0, 1
+bne smDirectHand
+li r0, 3
+stw r0, 4(r12)
+smDirectHand:
+
+lis r8, smHit@ha
+addi r8, r8, smHit@l
+addi r8, r8, -64 ; point read at +96 is smHit+32
+b xtMarkerHaveTarget
+smHandFallback:
 addi r8, r7, -28
 b xtMarkerHaveTarget
 tpMarkerFallback:
@@ -2292,6 +2492,40 @@ subf r11, r11, r7
 cmplwi r11, 1
 bgt xtMarkerDone
 stw r0, 4(r12)
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 4(r11)
+cmpwi r0, 1
+bne smSelectionMiss
+lwz r0, 16(r11)
+cmpwi r0, 2
+bne smSelectionMiss
+lwz r0, 100(r11)
+lwz r11, 0x54(r8)
+cmpw r0, r11
+bne smSelectionMiss
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 12(r11)
+lwz r11, 0x90(r8)
+cmpw r0, r11
+bne smSelectionMiss
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+lwz r0, 8(r11)
+lwz r11, 8(r8)
+subf r11, r0, r11
+cmplwi r11, 1
+bgt smSelectionMiss
+lis r11, smHit@ha
+addi r11, r11, smHit@l
+
+lis r8, smHit@ha
+addi r8, r8, smHit@l
+addi r8, r8, -64 ; point read at +96 is smHit+32
+b xtMarkerHaveTarget
+smSelectionMiss:
+b xtMarkerDone
 xtMarkerHaveTarget:
 lfs f0, 12(r9)
 lfs f1, 0(r9)
@@ -3599,7 +3833,7 @@ rrUiSkipDrawPass:
 b rrHudOriginalDraw
 rrUiSkipDrawSkip:
 blr
-0x023949C4 = bla rrUiSkipDraw
+0x023949C4 = bla ghFilterDraw
 
 ; Head xyz, active, look distance, actor, FOV limits, tolerance, activations;
 ; neutral head centre xyz, anchored flag, anchored actor, minus half, inverse Y world size.
@@ -4959,6 +5193,7 @@ stw r0, 0x120(r29)
 stw r0, 0x124(r29)
 b ctAimStickDone
 tfLookInactive:
+bl thmReset
 lfs f0, 20(r10)
 stfs f0, 0(r10)
 li r0, 0
@@ -5047,6 +5282,43 @@ cmpwi r0, 1
 bne tfLookMovementDone
 lfs f4, 0(r10)
 lfs f5, 4(r10)
+; Head-relative movement only in the effective first-person camera.
+lis r12, rrSlot@ha
+lwz r11, rrSlot@l(r12)
+cmplwi r11, 1
+bgt thmMovementReset
+mulli r11, r11, 2
+lis r12, rrEye@ha
+lwz r0, rrEye@l(r12)
+cmplwi r0, 1
+bgt thmMovementReset
+add r11, r11, r0
+mulli r11, r11, 4
+lis r12, tfNearState@ha
+addi r12, r12, tfNearState@l
+add r12, r12, r11
+lwz r0, 0(r12)
+cmpwi r0, 1
+bne thmMovementReset
+; A live minecart owns aiming; retain its existing movement behaviour.
+lis r12, ctAim@ha
+addi r12, r12, ctAim@l
+lwz r0, 0x0C(r12)
+cmpwi r0, 0
+beq thmMovementHead
+lwz r11, 8(r12)
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 8(r12)
+subf r11, r11, r0
+cmplwi r11, 2
+ble thmMovementReset
+thmMovementHead:
+bl thmCompose
+b thmMovementReady
+thmMovementReset:
+bl thmReset
+thmMovementReady:
 lfs f1, 0x118(r29)
 lfs f2, 0x11C(r29)
 fmuls f6, f1, f4
@@ -6806,12 +7078,30 @@ li r0, 1
 stw r0, 24(r12)
 b tpPointerDone
 tpPointerNoCart:
-; Diorama only: in first person the eye is not at the native camera.
+; FP supplies a world ray to the native touch collision query.
 lis r8, tfEyeAnchor@ha
 addi r8, r8, tfEyeAnchor@l
 lwz r0, 12(r8)
 cmpwi r0, 1
-beq tpPointerDone
+bne tpFpPadDiorama
+lis r8, tpFpRay@ha
+addi r8, r8, tpFpRay@l
+lwz r0, 0(r8)
+cmpwi r0, 1
+bne tpPointerDone
+lis r11, xtData@ha
+addi r11, r11, xtData@l
+lwz r11, 8(r11)
+lwz r0, 4(r8)
+subf r11, r0, r11
+cmplwi r11, 2
+bgt tpPointerDone
+; Touch coordinates retain native pressed/released bookkeeping; FP picking
+; itself uses our world ray, so it is not clipped to the old TV rectangle.
+lfs f5, 108(r7)
+fmr f6, f5
+b tpFpPadCoordinates
+tpFpPadDiorama:
 ; The game's perspective object, as the pack tracks it.
 lis r8, rrProjectionSource@ha
 addi r8, r8, rrProjectionSource@l
@@ -6896,6 +7186,7 @@ fcmpu cr0, f6, f11
 ble tpPointerClampHi6
 fmr f6, f11
 tpPointerClampHi6:
+tpFpPadCoordinates:
 lfs f11, 112(r7)
 fmuls f5, f5, f11
 stfs f5, 16(r7)
@@ -7341,3 +7632,1458 @@ tfMiddle:
 ; nothing to do, so the effect is never entered and r31 keeps the target.
 0x023CF61C = tfGodRaySkip:
 0x023CF564 = b tfGodRaySkip
+
+; Horizontal head-based movement, shared gamepad/VR input path.
+thmReset:
+lis r12, thmState@ha
+addi r12, r12, thmState@l
+li r0, 0
+stw r0, 16(r12)
+stw r0, 12(r12)
+stw r0, 4(r12)
+lis r0, 0x3F80
+stw r0, 8(r12)
+stw r0, 0(r12)
+blr
+thmCompose:
+lis r12, thmState@ha
+addi r12, r12, thmState@l
+lis r10, rrSlot@ha
+lwz r10, rrSlot@l(r10)
+cmplwi r10, 1
+bgt thmCached
+mulli r10, r10, 196
+lis r9, rrPoseLatch0@ha
+addi r9, r9, rrPoseLatch0@l
+add r10, r10, r9
+lwz r11, 0(r10)
+cmpwi r11, 0
+beq thmCached
+lwz r9, 16(r12)
+cmpw r11, r9
+beq thmCached
+; Inverse eye rotation row 2 is the head forward axis in anchor space.
+; Translation, pitch magnitude and roll do not steer the horizontal stick.
+lfs f6, 44(r10)
+lfs f7, 36(r10)
+fneg f7, f7
+fmuls f9, f6, f6
+fmuls f10, f7, f7
+fadds f9, f9, f10
+lfs f13, 36(r12)
+.int 0xFC096800 ; fcmpu cr0,f9,f13
+blt thmCached
+lfs f13, 40(r12)
+.int 0xFC096800 ; fcmpu cr0,f9,f13
+bgt thmCached
+; Reject NaN by checking each source word, rather than float comparisons.
+lwz r0, 44(r10)
+rlwinm r0, r0, 0, 1, 31
+lis r9, 0x3F82
+cmplw r0, r9
+bgt thmCached
+lwz r0, 36(r10)
+rlwinm r0, r0, 0, 1, 31
+cmplw r0, r9
+bgt thmCached
+lfs f10, 20(r12)
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f6, f6, f10
+fmuls f7, f7, f10
+lwz r9, 16(r12)
+stw r11, 16(r12)
+cmpwi r9, 0
+beq thmStoreRaw
+; Smooth the unnormalised vector; never feed its normalisation back.
+; This also allows an exact 180-degree reversal to cross through zero.
+lfs f8, 0(r12)
+lfs f9, 4(r12)
+lfs f10, 32(r12)
+fsubs f6, f6, f8
+fsubs f7, f7, f9
+fmuls f6, f6, f10
+fmuls f7, f7, f10
+fadds f6, f6, f8
+fadds f7, f7, f9
+thmStoreRaw:
+stfs f6, 0(r12)
+stfs f7, 4(r12)
+fmuls f9, f6, f6
+fmuls f10, f7, f7
+fadds f9, f9, f10
+lfs f13, 36(r12)
+.int 0xFC096800 ; fcmpu cr0,f9,f13
+blt thmCached
+lfs f10, 20(r12)
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f11, f10, f10
+fmuls f11, f11, f9
+lfs f13, 24(r12)
+fmuls f11, f11, f13
+lfs f13, 28(r12)
+fsubs f11, f13, f11
+fmuls f10, f10, f11
+fmuls f6, f6, f10
+fmuls f7, f7, f10
+stfs f6, 8(r12)
+stfs f7, 12(r12)
+thmCached:
+lfs f6, 8(r12)
+lfs f7, 12(r12)
+; Compose with the existing stick yaw, leaving the view itself untouched.
+fmuls f8, f4, f6
+fmuls f9, f5, f7
+fsubs f8, f8, f9
+fmuls f9, f5, f6
+fmuls f10, f4, f7
+fadds f5, f9, f10
+fmr f4, f8
+blr
+thmState:
+.int 0x3F800000
+.int 0x00000000
+.int 0x3F800000
+.int 0x00000000
+.int 0x00000000
+.int 0x3F800000
+.int 0x3F000000
+.int 0x3FC00000
+.int 0x3F000000
+.int 0x3D23D70A
+.int 0x40066666
+
+; Scoped native touch calls: never change the simulation/render camera.
+tpFpPoint:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne tpFpPointNative
+lis r12, mtPad@ha
+addi r12, r12, mtPad@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq tpFpPointNative
+lwz r0, 88(r12)
+cmpwi r0, 0
+beq tpFpPointNative
+lis r12, tpPointer@ha
+addi r12, r12, tpPointer@l
+lwz r0, 8(r12)
+cmpwi r0, 1
+bne tpFpPointNative
+lis r12, tfEyeAnchor@ha
+addi r12, r12, tfEyeAnchor@l
+lwz r0, 12(r12)
+cmpwi r0, 1
+bne tpFpPointNative
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne tpFpPointNative
+lwz r12, 8(r12)
+lwz r0, 4(r11)
+subf r12, r0, r12
+cmplwi r12, 2
+bgt tpFpPointNative
+lwz r0, 20(r11)
+stw r0, 0(r3)
+lwz r0, 24(r11)
+stw r0, 4(r3)
+lwz r0, 28(r11)
+stw r0, 8(r3)
+blr
+tpFpPointNative:
+b 0x023953D0
+0x0215ACF0 = bla tpFpPoint
+tpFpOrigin:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne tpFpOriginNative
+lis r12, mtPad@ha
+addi r12, r12, mtPad@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq tpFpOriginNative
+lwz r0, 88(r12)
+cmpwi r0, 0
+beq tpFpOriginNative
+lis r12, tpPointer@ha
+addi r12, r12, tpPointer@l
+lwz r0, 8(r12)
+cmpwi r0, 1
+bne tpFpOriginNative
+lis r12, tfEyeAnchor@ha
+addi r12, r12, tfEyeAnchor@l
+lwz r0, 12(r12)
+cmpwi r0, 1
+bne tpFpOriginNative
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne tpFpOriginNative
+lwz r12, 8(r12)
+lwz r0, 4(r11)
+subf r12, r0, r12
+cmplwi r12, 2
+bgt tpFpOriginNative
+addi r3, r11, 8
+blr
+tpFpOriginNative:
+b 0x0235AD98
+tpFpCollision:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne tpFpCollisionNative
+lis r12, mtPad@ha
+addi r12, r12, mtPad@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq tpFpCollisionNative
+lwz r0, 88(r12)
+cmpwi r0, 0
+beq tpFpCollisionNative
+lis r12, tpPointer@ha
+addi r12, r12, tpPointer@l
+lwz r0, 8(r12)
+cmpwi r0, 1
+bne tpFpCollisionNative
+lis r12, tfEyeAnchor@ha
+addi r12, r12, tfEyeAnchor@l
+lwz r0, 12(r12)
+cmpwi r0, 1
+bne tpFpCollisionNative
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne tpFpCollisionNative
+lwz r12, 8(r12)
+lwz r0, 4(r11)
+subf r12, r0, r12
+cmplwi r12, 2
+bgt tpFpCollisionNative
+addi r4, r11, 32
+addi r5, r11, 44
+tpFpCollisionNative:
+b 0x02365738
+tpFpRay:
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0x43FA0000
+.int 0x45FA0000
+.int 0x40000000
+.int 0x3F000000
+.int 0x3FC00000
+
+; GuideMessage's native icon enum: 0 DRC, 1 Gyro, 2 R, 3 Hand,
+; 4 trick-art/start, 5+ no icon. Hide 0-3, including the right-stick camera guide.
+; Record accepted shows only (020F2AC8), including visible-message reuse.
+; Bounded cache entries are actor, layout, icon; unknown entries draw normally.
+ghNext:
+.int 0
+ghEntries:
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+
+ghRemember:
+stwu r1, -0x20(r1)
+stw r0, 8(r1)
+stw r10, 12(r1)
+stw r11, 16(r1)
+stw r12, 20(r1)
+.int 0x7C000026
+stw r0, 24(r1)
+lis r12, ghEntries@ha
+addi r12, r12, ghEntries@l
+li r10, 16
+ghRememberLoop:
+lwz r11, 0(r12)
+cmpw r11, r29
+beq ghRememberStore
+addi r12, r12, 12
+addi r10, r10, -1
+cmpwi r10, 0
+bne ghRememberLoop
+lis r11, ghNext@ha
+lwz r10, ghNext@l(r11)
+lis r12, ghEntries@ha
+addi r12, r12, ghEntries@l
+add r12, r12, r10
+addi r10, r10, 12
+cmpwi r10, 192
+blt ghRememberNext
+li r10, 0
+ghRememberNext:
+stw r10, ghNext@l(r11)
+ghRememberStore:
+stw r29, 0(r12)
+lwz r11, 0x30(r29)
+stw r11, 4(r12)
+stw r30, 8(r12)
+lwz r0, 24(r1)
+.int 0x7C0FF120
+lwz r0, 8(r1)
+lwz r10, 12(r1)
+lwz r11, 16(r1)
+lwz r12, 20(r1)
+addi r1, r1, 0x20
+stw r6, 0x5C(r29)
+b ghRememberReturn
+0x020F2AC8 = ba ghRemember
+0x020F2ACC = ghRememberReturn:
+
+ghFilterDraw:
+; Host acknowledgement also covers flat VR canvas frames. Without a host,
+; preserve the original desktop tutorials. All camera modes use this path.
+lis r12, rrHudWorldAck@ha
+lwz r11, rrHudWorldAck@l(r12)
+lis r12, 0x4855
+addi r12, r12, 0x4131
+cmpw r11, r12
+bne ghDrawPass
+lwz r11, 0(r7)
+lis r12, 0x1003
+addi r12, r12, -12900
+cmpw r11, r12
+bne ghDrawPass
+lis r12, ghEntries@ha
+addi r12, r12, ghEntries@l
+li r10, 16
+ghDrawLoop:
+lwz r11, 0(r12)
+cmpw r11, r7
+bne ghDrawNext
+lwz r11, 4(r12)
+cmpw r11, r3
+bne ghDrawPass
+lwz r11, 8(r12)
+cmpwi r11, 0
+beq ghDrawSkip
+cmpwi r11, 1
+beq ghDrawSkip
+cmpwi r11, 2
+beq ghDrawSkip
+cmpwi r11, 3
+beq ghDrawSkip
+b ghDrawPass
+ghDrawNext:
+addi r12, r12, 12
+addi r10, r10, -1
+cmpwi r10, 0
+bne ghDrawLoop
+ghDrawPass:
+b rrUiSkipDraw
+ghDrawSkip:
+blr
+
+; Surface markers use native nearest intersections, including hover.
+smQuery:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+bl smPrepare
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+b 0x0215BB50
+0x0215BF48 = bla smQuery
+smPrepare:
+stwu r1, -0x20(r1)
+mflr r0
+stw r0, 0x24(r1)
+.int 0x7C0902A6
+stw r0, 8(r1)
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 0
+stw r0, 0(r12)
+stw r0, 4(r12)
+stw r0, 100(r12)
+stw r0, 116(r12)
+lfs f0, 80(r12)
+stfs f0, 68(r12)
+lis r11, xtData@ha
+addi r11, r11, xtData@l
+lwz r0, 8(r11)
+stw r0, 8(r12)
+lwz r0, 0x90(r11)
+stw r0, 12(r12)
+lis r7, ctAim@ha
+addi r7, r7, ctAim@l
+lwz r0, 12(r7)
+cmpwi r0, 0
+beq smPrepareSelection
+lwz r8, 8(r11)
+lwz r0, 8(r7)
+subf r8, r0, r8
+cmplwi r8, 2
+bgt smPrepareSelection
+li r0, 2
+stw r0, 0(r12)
+li r0, 1
+stw r0, 16(r12)
+lwz r0, 20(r7)
+stw r0, 20(r12)
+lwz r0, 32(r7)
+stw r0, 84(r12)
+lwz r0, 24(r7)
+stw r0, 24(r12)
+lwz r0, 36(r7)
+stw r0, 88(r12)
+lwz r0, 28(r7)
+stw r0, 28(r12)
+lwz r0, 40(r7)
+stw r0, 92(r12)
+b smPrepareVectors
+smPrepareSelection:
+lwz r0, 0x54(r11)
+cmpwi r0, 0
+beq smPreparePen
+lis r7, smEye@ha
+addi r7, r7, smEye@l
+lwz r8, 0(r7)
+cmpwi r8, 1
+bne smPreparePen
+lwz r8, 8(r7)
+lwz r0, 0x90(r11)
+cmpw r8, r0
+bne smPreparePen
+lwz r8, 8(r11)
+lwz r0, 4(r7)
+subf r8, r0, r8
+cmplwi r8, 2
+bgt smPreparePen
+lwz r8, 8(r11)
+lwz r0, 0x58(r11)
+subf r8, r0, r8
+cmplwi r8, 1
+bgt smPreparePen
+lwz r0, 0x54(r11)
+stw r0, 100(r12)
+lfs f0, 12(r7)
+stfs f0, 20(r12)
+lfs f1, 96(r11)
+fsubs f1, f1, f0
+stfs f1, 104(r12)
+fmuls f1, f1, f1
+fmr f3, f1
+lfs f0, 16(r7)
+stfs f0, 24(r12)
+lfs f1, 100(r11)
+lfs f2, 0x70(r11)
+fsubs f1, f1, f2
+fsubs f1, f1, f0
+stfs f1, 108(r12)
+fmuls f1, f1, f1
+fadds f3, f3, f1
+lfs f0, 20(r7)
+stfs f0, 28(r12)
+lfs f1, 104(r11)
+fsubs f1, f1, f0
+stfs f1, 112(r12)
+fmuls f1, f1, f1
+fadds f3, f3, f1
+fcmpu cr0, f3, f3
+bne smPrepareDone
+lfs f0, 76(r12)
+fmuls f0, f0, f0
+fcmpu cr0, f3, f0
+blt smPrepareDone
+lfs f0, 96(r12)
+fcmpu cr0, f3, f0
+bgt smPrepareDone
+addi r3, r12, 84
+addi r4, r12, 104
+bl 0x0231FFD8
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 4
+stw r0, 0(r12)
+li r0, 2
+stw r0, 16(r12)
+b smPrepareVectors
+smPreparePen:
+lis r11, tpFpRay@ha
+addi r11, r11, tpFpRay@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne smPrepareDiorama
+lis r12, mtPad@ha
+addi r12, r12, mtPad@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq smPrepareDiorama
+lwz r0, 88(r12)
+cmpwi r0, 0
+beq smPrepareDiorama
+lis r12, tpPointer@ha
+addi r12, r12, tpPointer@l
+lwz r0, 8(r12)
+cmpwi r0, 1
+bne smPrepareDiorama
+lis r12, tfEyeAnchor@ha
+addi r12, r12, tfEyeAnchor@l
+lwz r0, 12(r12)
+cmpwi r0, 1
+bne smPrepareDiorama
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne smPrepareDiorama
+lwz r12, 8(r12)
+lwz r0, 4(r11)
+subf r12, r0, r12
+cmplwi r12, 2
+bgt smPrepareDiorama
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 1
+stw r0, 0(r12)
+li r0, 0
+stw r0, 16(r12)
+lis r7, tpPointer@ha
+addi r7, r7, tpPointer@l
+lwz r0, 8(r11)
+stw r0, 20(r12)
+lwz r0, 88(r7)
+stw r0, 84(r12)
+lwz r0, 12(r11)
+stw r0, 24(r12)
+lwz r0, 92(r7)
+stw r0, 88(r12)
+lwz r0, 16(r11)
+stw r0, 28(r12)
+lwz r0, 96(r7)
+stw r0, 92(r12)
+b smPrepareVectors
+smPrepareDiorama:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lis r7, tpPointer@ha
+addi r7, r7, tpPointer@l
+lwz r0, 8(r7)
+cmpwi r0, 1
+bne smPrepareDone
+lis r11, tfEyeAnchor@ha
+addi r11, r11, tfEyeAnchor@l
+lwz r0, 12(r11)
+cmpwi r0, 1
+beq smPrepareDone
+li r0, 3
+stw r0, 0(r12)
+li r0, 0
+stw r0, 16(r12)
+b smPrepareDone
+smPrepareVectors:
+lfs f0, 20(r12)
+lfs f1, 84(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 44(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 56(r12)
+lfs f0, 24(r12)
+lfs f1, 88(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 48(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 60(r12)
+lfs f0, 28(r12)
+lfs f1, 92(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 52(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 64(r12)
+smPrepareDone:
+lwz r0, 8(r1)
+.int 0x7C0903A6
+lwz r0, 0x24(r1)
+mtlr r0
+addi r1, r1, 0x20
+blr
+smHover:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+.int 0x7C0902A6
+stw r0, 176(r1)
+stw r27, 180(r1)
+stw r28, 184(r1)
+stw r29, 188(r1)
+bl smPrepare
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
+beq smHoverQuery
+cmpwi r0, 2
+beq smHoverQuery
+cmpwi r0, 4
+bne smHoverDone
+smHoverQuery:
+lwz r29, 8(r30)
+cmpwi r29, 0
+beq smHoverDone
+lwz r0, 0x88(r29)
+cmpwi r0, 0
+beq smHoverDone
+lwz r28, 0x8C(r29)
+cmpwi r28, 0
+beq smHoverDone
+mr r3, r29
+bl 0x0215BB50
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+mr r3, r28
+addi r4, r12, 20
+addi r5, r29, 0x9C
+bl 0x0238CFDC
+li r27, 0
+smHoverSensorLoop:
+lwz r0, 0x20(r28)
+cmplw r27, r0
+bge smHoverDone
+mr r3, r28
+mr r4, r27
+bl 0x0238CE8C
+cmpwi r3, 0
+beq smHoverNext
+bl smSensorCandidate
+smHoverNext:
+addi r27, r27, 1
+b smHoverSensorLoop
+smHoverDone:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 0
+stw r0, 0(r12)
+lwz r27, 180(r1)
+lwz r28, 184(r1)
+lwz r29, 188(r1)
+lwz r0, 176(r1)
+.int 0x7C0903A6
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+lwz r3, 8(r30)
+blr
+0x0215ADA4 = bla smHover
+smNormalize:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
+beq smNormalizeRay
+cmpwi r0, 2
+beq smNormalizeRay
+cmpwi r0, 4
+bne smNormalizeNative
+smNormalizeRay:
+lwz r0, 84(r12)
+stw r0, 0(r3)
+lwz r0, 88(r12)
+stw r0, 4(r3)
+lwz r0, 92(r12)
+stw r0, 8(r3)
+blr
+smNormalizeNative:
+b 0x0231FFD8
+0x0215BBD8 = bla smNormalize
+smOrigin:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
+beq smOriginRay
+cmpwi r0, 2
+beq smOriginRay
+cmpwi r0, 4
+beq smOriginRay
+; Preserve the native getter, and remember its exact origin for diorama.
+stwu r1, -0x20(r1)
+mflr r0
+stw r0, 0x24(r1)
+bl 0x0235AD98
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r3)
+stw r0, 20(r12)
+lwz r0, 4(r3)
+stw r0, 24(r12)
+lwz r0, 8(r3)
+stw r0, 28(r12)
+lwz r0, 0x24(r1)
+mtlr r0
+addi r1, r1, 0x20
+blr
+smOriginRay:
+addi r3, r12, 20
+blr
+0x0215BB78 = bla smOrigin
+0x0215BFC8 = bla smOrigin
+0x0215C09C = bla smOrigin
+smCollision:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
+beq smCollisionRay
+cmpwi r0, 2
+beq smCollisionRay
+cmpwi r0, 4
+bne smCollisionNative
+smCollisionRay:
+addi r4, r12, 44
+addi r5, r12, 56
+smCollisionNative:
+b 0x02365738
+0x0215BCF4 = bla smCollision
+smMeshHit:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+addi r7, r28, 0x64
+bl smCandidate
+cmpwi r8, 0
+beq smMeshDone
+lwz r3, 0(r28)
+cmpwi r3, 0
+beq smMeshClassified
+lwz r3, 0x120(r3)
+cmpwi r3, 0
+beq smMeshClassified
+lwz r3, 0x2C(r3)
+bl smClassifyOwner
+smMeshClassified:
+lwz r0, 0(r12)
+cmpwi r0, 4
+bne smMeshDone
+; A closer wall invalidates the selected-platform marker instead of moving it.
+li r0, 0
+stw r0, 4(r12)
+lwz r8, 0(r28)
+cmpwi r8, 0
+beq smMeshDone
+lwz r8, 0x120(r8)
+cmpwi r8, 0
+beq smMeshDone
+lwz r8, 0x2C(r8)
+lwz r0, 100(r12)
+cmpw r8, r0
+bne smMeshDone
+li r0, 1
+stw r0, 4(r12)
+smMeshDone:
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+mr r26, r28
+blr
+0x0215BDA4 = bla smMeshHit
+smSensorHit:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+mr r3, r21
+bl smSensorCandidate
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+lwz r11, 0x88(r29)
+blr
+0x0215C0E0 = bla smSensorHit
+smSensorCandidate:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 4
+bne smSensorAny
+lwz r8, 0x2C(r3)
+lwz r0, 100(r12)
+cmpw r8, r0
+bne smSensorDone
+smSensorAny:
+stwu r1, -0x10(r1)
+mflr r0
+stw r0, 0x14(r1)
+addi r7, r3, 0x20
+bl smCandidate
+cmpwi r8, 0
+beq smSensorClassified
+lwz r3, 0x2C(r3)
+bl smClassifyOwner
+smSensorClassified:
+lwz r0, 0x14(r1)
+mtlr r0
+addi r1, r1, 0x10
+smSensorDone:
+blr
+smSensorNear:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
+beq smSensorNearRay
+cmpwi r0, 2
+beq smSensorNearRay
+cmpwi r0, 4
+bne smSensorNearNative
+smSensorNearRay:
+lfs f0, 76(r12)
+fcmpu cr0, f1, f0
+b smSensorNearStore
+smSensorNearNative:
+fcmpu cr0, f1, f31
+smSensorNearStore:
+.int 0x7C000026
+stw r0, 16(r1) ; return the comparison CR, preserve every other register
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+blr
+0x0215C0C8 = bla smSensorNear
+smQueryEnd:
+stwu r1, -0xD0(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 12(r1)
+.int 0x7C000026
+stw r0, 16(r1)
+stw r3, 20(r1)
+stw r4, 24(r1)
+stw r5, 28(r1)
+stw r6, 32(r1)
+stw r7, 36(r1)
+stw r8, 40(r1)
+stw r9, 44(r1)
+stw r10, 48(r1)
+stw r11, 52(r1)
+stw r12, 56(r1)
+.int 0xD8010040
+.int 0xD8210048
+.int 0xD8410050
+.int 0xD8610058
+.int 0xD8810060
+.int 0xD8A10068
+.int 0xD8C10070
+.int 0xD8E10078
+.int 0xD9010080
+.int 0xD9210088
+.int 0xD9410090
+.int 0xD9610098
+.int 0xD98100A0
+.int 0xD9A100A8
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 0
+stw r0, 0(r12)
+.int 0xC8010040
+.int 0xC8210048
+.int 0xC8410050
+.int 0xC8610058
+.int 0xC8810060
+.int 0xC8A10068
+.int 0xC8C10070
+.int 0xC8E10078
+.int 0xC9010080
+.int 0xC9210088
+.int 0xC9410090
+.int 0xC9610098
+.int 0xC98100A0
+.int 0xC9A100A8
+lwz r3, 20(r1)
+lwz r4, 24(r1)
+lwz r5, 28(r1)
+lwz r6, 32(r1)
+lwz r7, 36(r1)
+lwz r8, 40(r1)
+lwz r9, 44(r1)
+lwz r10, 48(r1)
+lwz r11, 52(r1)
+lwz r12, 56(r1)
+lwz r0, 16(r1)
+.int 0x7C0FF120
+lwz r0, 12(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0xD0
+mr r3, r30
+blr
+0x0215C87C = bla smQueryEnd
+smCandidate:
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r8, 0
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq smCandidateDone
+lfs f1, 0(r7)
+lfs f2, 20(r12)
+fsubs f1, f1, f2
+fmuls f1, f1, f1
+fmr f0, f1
+lfs f1, 4(r7)
+lfs f2, 24(r12)
+fsubs f1, f1, f2
+fmuls f1, f1, f1
+fadds f0, f0, f1
+lfs f1, 8(r7)
+lfs f2, 28(r12)
+fsubs f1, f1, f2
+fmuls f1, f1, f1
+fadds f0, f0, f1
+fcmpu cr0, f0, f0
+bne smCandidateDone
+lfs f1, 76(r12)
+fmuls f1, f1, f1
+fcmpu cr0, f0, f1
+blt smCandidateDone
+lfs f1, 68(r12)
+fcmpu cr0, f0, f1
+bge smCandidateDone
+lfs f1, 96(r12)
+fcmpu cr0, f0, f1
+bgt smCandidateDone
+stfs f0, 68(r12)
+lwz r0, 0(r7)
+stw r0, 32(r12)
+lwz r0, 4(r7)
+stw r0, 36(r12)
+lwz r0, 8(r7)
+stw r0, 40(r12)
+li r0, 0
+stw r0, 116(r12)
+li r0, 1
+stw r0, 4(r12)
+li r8, 1
+smCandidateDone:
+blr
+smClassifyOwner:
+; Touch sensors are not HitSensors. Inspect the owner's HitSensorKeeper
+; (native getter 0233C81C), then the documented native body categories.
+; Unknown targets, terrain, lifts and pure attack/projectile sensors use hand.
+cmpwi r3, 0
+beq smClassifyDone
+lwz r3, 0x4C(r3)
+cmpwi r3, 0
+beq smClassifyDone
+lwz r4, 4(r3)
+cmplwi r4, 64
+bgt smClassifyDone
+cmpwi r4, 0
+beq smClassifyDone
+lwz r3, 8(r3)
+cmpwi r3, 0
+beq smClassifyDone
+smClassifyLoop:
+lwz r5, 0(r3)
+cmpwi r5, 0
+beq smClassifyNext
+lwz r5, 4(r5)
+cmpwi r5, 5
+beq smClassifyEnemy
+cmpwi r5, 6
+beq smClassifyEnemy
+cmpwi r5, 9
+beq smClassifyEnemy
+cmpwi r5, 10
+beq smClassifyEnemy
+smClassifyNext:
+addi r3, r3, 4
+addi r4, r4, -1
+cmpwi r4, 0
+bne smClassifyLoop
+smClassifyDone:
+blr
+smClassifyEnemy:
+li r0, 1
+stw r0, 116(r12)
+blr
+smHit:
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x45FA0000
+.int 0x40000000
+.int 0x7149F2CA
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x4C744341
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+.int 0x00000000
+smEye:
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0

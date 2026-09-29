@@ -25,14 +25,14 @@ libraries and the Windows Imaging Component and uses the dynamic MSVC
 runtime. The Microsoft Visual C++ x64 Redistributable may be needed on the
 machine running the mod.
 
-The touch hand and the crosshair are the two images under `core/assets/`;
+The touch hand, crosshair and stun fist are the three PNG images under `core/assets/`;
 `core/touch_icon.rc` embeds them into the DLL as resources, so they have to
 stay beside it.
 
 The files under `graphicPacks/` are assembled by Cemu when it starts the game.
 No game executable is required to compile the C++ layer.
 
-## Package Alpha 1.0
+## Package Alpha 1.1
 
 ```powershell
 python tools/package.py --dll build/Release/cemuvr_layer.dll

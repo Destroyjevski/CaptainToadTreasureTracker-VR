@@ -285,6 +285,18 @@ bool isBgra(DXGI_FORMAT f) {
     return f == DXGI_FORMAT_B8G8R8A8_UNORM || f == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 }
 
+// Adapted from Anakins' SteamVR fix (SuperMario3DWorld-VR PR #2).
+// UNORM and SRGB variants have identical texel layouts: vkCmdCopyImage
+// preserves their bytes. Channel order must still match.
+VkFormat texelBase(VkFormat f) {
+    switch (f) {
+        case VK_FORMAT_R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_UNORM;
+        case VK_FORMAT_B8G8R8A8_SRGB: return VK_FORMAT_B8G8R8A8_UNORM;
+        default: return f;
+    }
+}
+bool sameTexelLayout(VkFormat a, VkFormat b) { return texelBase(a) == texelBase(b); }
+
 // Bevorzugtes OpenXR-Format zu Cemus Swapchainformat: gleiche Kanalreihenfolge,
 // sRGB-Variante bevorzugt (der Compositor erwartet sRGB, und Cemus fertiges
 // Bild traegt bereits gammakodierte Werte -- die Umdeutung ist genau richtig
@@ -944,7 +956,7 @@ void touchMarkerSummary() {
         (unsigned long long)t.stale,(unsigned long long)t.flags,(unsigned long long)t.behind,
         (unsigned long long)t.acceptedHand,(unsigned long long)t.acceptedAim);
 }
-bool readTouchMarker(int slot,uint32_t token,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson) {
+bool readTouchMarker(int slot,uint32_t token,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson,bool& stun) {
     ++g_touchMarkerStats.calls;
     static uint8_t* packet=nullptr;
     static uint8_t* previousBase=nullptr;
@@ -990,6 +1002,9 @@ bool readTouchMarker(int slot,uint32_t token,std::array<XrVector3f,2>& points,bo
     if(raw[5]!=raw[13] || raw[5]>1 || raw[6]!=raw[14] || raw[6]>1){++g_touchMarkerStats.flags;return false;}
     aim=raw[6]==1;
     firstPerson=raw[5]==1;
+    // The guest publishes identity 3 only for a fresh enemy-body target.
+    // Ordinary direct touch (2), misses and selected platforms use the hand.
+    stun=!aim && raw[1]==3;
     static const float units=[] {
         const auto s=envStr("CEMUVR_TOAD_WORLD_SIZE","2");
         const float factor=std::strtof(s.c_str(),nullptr);
@@ -1035,7 +1050,7 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
         return dd->QueuePresent(queue,pi);
     }
     if(queue!=dd->vk.queue || !dd->vk.keyedMutex || pairs.width!=g.interop.width() ||
-       pairs.height!=g.interop.height() || pairs.format!=dxgiToVk(g.interop.format())) {
+       pairs.height!=g.interop.height() || !sameTexelLayout(pairs.format,dxgiToVk(g.interop.format()))) {
         pairs.failed=true;CVR_ERR("reference.transport","queue_format_size_or_mutex_mismatch=1");
         return dd->QueuePresent(queue,pi);
     }
@@ -1047,7 +1062,7 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
         VkSemaphore signal{};
         // Diagnostic view translation: source eye 1 is physically left.
         copied[eye]=g.interop.copyFromSwapchainImage(dd->vk,eye,pairs.images[slot*2+(1-eye)].handle,
-            pairs.width,pairs.height,next.pWaitSemaphores,next.waitSemaphoreCount,&signal,0,0,VK_IMAGE_LAYOUT_GENERAL);
+            pairs.width,pairs.height,next.pWaitSemaphores,next.waitSemaphoreCount,&signal,0,0,VK_IMAGE_LAYOUT_GENERAL,pairs.format);
         if(!copied[eye])break;
         last=signal;next.waitSemaphoreCount=1;next.pWaitSemaphores=&last;
     }
@@ -1059,12 +1074,12 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
         auto& hi=dd->hudInterop;
         if(!hi.width()) {
             if(!hi.createD3D11Side(g.xr.device(),pairs.width,pairs.height,g.interop.format()) ||
-               !hi.importIntoVulkan(dd->vk,pairs.format))hud.hud.failed=true;
+               !hi.importIntoVulkan(dd->vk,dxgiToVk(g.interop.format())))hud.hud.failed=true;
         }
         if(hi.vulkanReady() && !hud.hud.failed) {
             VkSemaphore signal{};
             hudCopied=hi.copyFromSwapchainImage(dd->vk,0,hud.hud.images[slot*2].handle,pairs.width,pairs.height,
-                next.pWaitSemaphores,next.waitSemaphoreCount,&signal,0,0,VK_IMAGE_LAYOUT_GENERAL);
+                next.pWaitSemaphores,next.waitSemaphoreCount,&signal,0,0,VK_IMAGE_LAYOUT_GENERAL,hud.hud.format);
             if(hudCopied){last=signal;next.waitSemaphoreCount=1;next.pWaitSemaphores=&last;}
         }
     }
@@ -1120,8 +1135,8 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
                 (unsigned long long)(stampValid?stamp.context.poseSerial:0),int(submitted));
         if(submitted && !surfaceFrame && hudHeld)g.xr.submitHud(dd->hudInterop.d3dTexture(0));
         if(submitted && !surfaceFrame && stampValid) {
-            std::array<XrVector3f,2> points{};bool aim=false,firstPerson=false;
-            if(readTouchMarker(slot,token,points,aim,firstPerson))g.xr.setTouchMarker(points,aim,firstPerson);
+            std::array<XrVector3f,2> points{};bool aim=false,firstPerson=false,stun=false;
+            if(readTouchMarker(slot,token,points,aim,firstPerson,stun))g.xr.setTouchMarker(points,aim,firstPerson,stun);
         }
         perf.submit=perfMs()-stage;stage=perfMs();
         perf.surface=g.xr.surfaceActive()?1:0;
@@ -1246,7 +1261,7 @@ VKAPI_ATTR VkResult VKAPI_CALL QueuePresentKHR(VkQueue queue, const VkPresentInf
             CVR_INFO("reference.source","first_pair size=%ux%u format=%s",pair.width,pair.height,vkFormatName(pair.format));
             setPhase(LayerPhase::PairKnown);
         }
-        if(g.ready && (g.interop.width()!=pair.width || g.interop.height()!=pair.height || dxgiToVk(g.interop.format())!=pair.format)) {
+        if(g.ready && (g.interop.width()!=pair.width || g.interop.height()!=pair.height || !sameTexelLayout(dxgiToVk(g.interop.format()),pair.format))) {
             pair.failed=true;
             CVR_ERR("reference.transport","source_changed_restart_required=1");
             return dd->QueuePresent(queue,pi);
@@ -1839,6 +1854,7 @@ VKAPI_ATTR VkResult VKAPI_CALL LayerCreateDevice(VkPhysicalDevice phys,
     f.ResetCommandBuffer           = (PFN_vkResetCommandBuffer)nextGdpa(*out, "vkResetCommandBuffer");
     f.CmdPipelineBarrier           = (PFN_vkCmdPipelineBarrier)nextGdpa(*out, "vkCmdPipelineBarrier");
     f.CmdCopyImage                 = (PFN_vkCmdCopyImage)nextGdpa(*out, "vkCmdCopyImage");
+    f.CmdBlitImage                 = (PFN_vkCmdBlitImage)nextGdpa(*out, "vkCmdBlitImage");
     f.QueueSubmit                  = (PFN_vkQueueSubmit)nextGdpa(*out, "vkQueueSubmit");
     f.QueueWaitIdle                = (PFN_vkQueueWaitIdle)nextGdpa(*out, "vkQueueWaitIdle");
     f.CreateFence                  = (PFN_vkCreateFence)nextGdpa(*out, "vkCreateFence");

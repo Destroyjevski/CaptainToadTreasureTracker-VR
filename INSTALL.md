@@ -2,16 +2,16 @@
 
 ## Before you start
 
-- Set up Cemu 2.6 and confirm that your European Captain Toad: Treasure
+- Set up Cemu 2.6 and confirm that your Captain Toad: Treasure
   Tracker with update v16 runs normally with a gamepad.
 - Select an OpenXR runtime for your headset. The tested runtime is Virtual
   Desktop/VDXR.
 - For the default 120 FPS preset, use a 120 Hz headset refresh rate.
 - Close Cemu before starting a VR session.
 
-## Install Alpha 1.0
+## Install Alpha 1.1
 
-1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.0-install.zip`.
+1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.1-install.zip`.
 2. Copy its **`CaptainToad-VR`** folder into your Cemu folder, beside `Cemu.exe`.
 3. Open that folder and run **`Start-VR.cmd`**. The game starts in diorama mode.
 4. Launch the game from Cemu's game list.
@@ -83,8 +83,8 @@ have not been validated.
 | Left grip | L |
 | Right grip | R |
 | Left menu button | Plus |
-| Right controller direction | Point at touch objects in the diorama views; aim in the minecart |
-| Right trigger | Touch at the pointer in diorama; fire in the minecart; otherwise B in first person |
+| Right controller direction | Aim the touch hand in diorama or first person; aim in the minecart |
+| Right trigger | Touch at the pointer; fire in the minecart |
 
 **D-pad gesture (VR controllers only):** hold the left controller near your
 head. A short vibration confirms activation; the right stick now sends
@@ -94,10 +94,11 @@ away to resume camera turning.
 **Selecting a nearby lift or platform:** hold left Y while the D-pad gesture
 is active, then move the right stick left/right. The hand marks the selected
 object. Release left Y to touch it. This selection method also works in
-first person, where direct controller pointing is off.
+first person.
 
-**Direct touch in diorama:** point the right controller at the level and
-hold its trigger. The hand marks the touch point; release the trigger to
+**Direct touch:** point the right controller at the level and
+hold its trigger. In first person the hand is already visible while aiming,
+including when aiming at an enemy for touch-stunning. Release the trigger to
 end the touch. In the minecart, point the right controller to aim and press
 its trigger to fire, including in first person.
 
@@ -121,17 +122,30 @@ diorama, point the right controller at the level and hold the trigger: the
 hand appears where the controller points, the game receives a touch at that
 spot for as long as the trigger is held, and the touch ends when you let go.
 It moves lifts and movable platforms. The game picks the touched object
-along its own camera ray, so the hand sits on what you point at regardless
-of how far away it is. From the pad, hold Y and switch between the nearby
+along a ray. This test build places the hand at the nearest reported collision
+point, with a reference-distance fallback when no hit is available.
+From the pad, hold Y and switch between the nearby
 lifts and movable platforms with D-pad left or right; the hand marks the
 chosen one, and releasing Y touches it. The VR controllers do the same with
 the D-pad emulation: hold the left controller to your head and Y, and push
-the right stick left or right. In first person the pointer is off, because
-there the eye does not sit at the game's camera; choose with Y and the D-pad
-there.
+the right stick left or right. In first person direct pointing uses the
+VR camera position and right-controller direction for the game's touch
+collision query. Aim with the visible hand, then hold the right trigger.
+This first-person path still needs an in-headset gameplay test.
+
+In this test build, the pointer uses a fist only when its nearest target is
+recognized as an enemy, in every camera mode. Lifts, platforms and other
+targets use the pointing hand. The symbol does not confirm stun success.
+The minecart retains its crosshair.
+The selected-platform hand now uses a collision point on that platform instead
+of floating above its origin. It is hidden when no matching surface is found
+or closer geometry blocks it. This placement awaits headset testing.
 
 **The crosshair** (`docs/crosshair.png`) is the minecart's aim. It shows
-where the next shot goes, at least three metres out in the direction of aim.
+the nearest reported collision point along the shot's initial direction.
+Without a hit it uses the existing distant aim point. It does not predict
+the projectile's curved trajectory. Collision shapes may differ from visible
+models; this surface placement still needs headset testing.
 Aim with the right stick as the game intends, or point the right controller:
 the crosshair follows it, and the trigger fires (Y on the pad, or ZR). In
 first person hold Y to aim with the right stick.

@@ -1,6 +1,6 @@
 # Known issues
 
-**Alpha 1.0** is intended for early testing. A full playthrough has not
+**Alpha 1.1** is intended for early testing. A full playthrough has not
 been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Rendering and performance
@@ -17,11 +17,13 @@ been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Controls
 
-- Direct touch pointing with the right VR controller is unavailable in first
-  person: its touch-hand marker is not shown, and the right trigger cannot be
-  used to target enemies for touch-stunning. Nearby platform selection with
-  Y and the D-pad still works, including its hand marker. Minecart aiming
-  with the crosshair and firing also work in first person.
+- First-person controller touch and enemy stunning now have a dedicated
+  world-ray adapter, checked offline but awaiting headset gameplay testing.
+  Hand and crosshair surface placement uses the game's collision shapes,
+  which may differ from visible geometry, and still needs headset testing.
+  Without a fresh hit the direct pointer and crosshair use their reference
+  distance; the selected-platform finger is hidden until a matching hit exists.
+  Platform selection and minecart aiming retain their existing controls.
 - Tested interactions include direct touch on lifts and movable platforms in
   the diorama views, nearby platform selection with Y and the D-pad (gamepad
   or VR-controller D-pad emulation), and controller aiming and firing in the

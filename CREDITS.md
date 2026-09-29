@@ -31,13 +31,21 @@ The unchanged license is included in [licenses/BetterVR-MIT.txt](licenses/Better
 and is retained in the distributed release archives.
 This project is independent; no endorsement by Crementif or BetterVR is claimed.
 
+## Community contributions
+
+Thanks to **[Anakins](https://github.com/Anakins)** for identifying the
+SteamVR swapchain-format mismatch and contributing the UNORM/sRGB
+compatibility and HUD texture-import fix in
+[SuperMario3DWorld-VR PR #2](https://github.com/Destroyjevski/SuperMario3DWorld-VR/pull/2).
+The same fix has been adapted to Captain Toad's VR layer.
+
 ## Other components
 
 - **Khronos OpenXR loader** — Apache 2.0; notice in
   [licenses/OpenXR-Apache-2.0.txt](licenses/OpenXR-Apache-2.0.txt).
 - **JsonCpp** — MIT; notice in [licenses/JsonCpp-MIT.txt](licenses/JsonCpp-MIT.txt).
   It may be incorporated through the statically linked OpenXR loader.
-- **Windows Imaging Component** — decodes the two marker images embedded in
+- **Windows Imaging Component** — decodes the three marker images embedded in
   the layer; a Windows system component, not vendored.
 - The community resolution graphic pack for the game is used in the
   documented setup. That pack is not redistributed here.

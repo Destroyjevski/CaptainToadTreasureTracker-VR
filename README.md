@@ -1,6 +1,6 @@
 # Captain Toad: Treasure Tracker VR
 
-**Alpha 1.0** · Windows x64 · Cemu · OpenXR
+**Alpha 1.1** · Windows x64 · Cemu · OpenXR
 
 Stereo rendering and six-degree-of-freedom head tracking for the Wii U
 version of **Captain Toad: Treasure Tracker**. Play with a gamepad or VR
@@ -27,6 +27,24 @@ menus are shown on a screen that stays fixed in the room.
 All modes include room-anchored menus and HUD, head tracking, and the VR
 controllers as the GamePad, touch screen included.
 
+## New in Alpha 1.1
+
+- SteamVR compatibility fix by **Anakins** for runtimes that select an sRGB
+  swapchain, including the matching HUD texture import.
+- Converts eye and HUD colours when the runtime requires sRGB; keeps the
+  existing UNORM transfer unchanged. Headset comparison is pending.
+- Head-based movement in first person: the left stick follows the horizontal
+  headset direction with responsive smoothing, for gamepads and VR controllers.
+  Looking up or down does not change movement speed. Minecart aiming keeps its
+  existing controls.
+- First-person touch interaction with target-specific icons: a fist for
+  recognized enemies, a pointing hand for lifts and platforms, and the
+  existing minecart crosshair. Markers follow the nearest collision surface.
+- Hides GamePad touch, tilt and right-stick tutorial banners in VR.
+
+See [release notes](RELEASE_NOTES.md) and [known issues](KNOWN-ISSUES.md)
+for test coverage and remaining limitations.
+
 ## Features
 
 - **Stereo rendering with head tracking** through OpenXR, on the game's own
@@ -49,7 +67,7 @@ see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
 
-1. Download the **Alpha 1.0 installation ZIP** from [Releases](../../releases).
+1. Download the **Alpha 1.1 installation ZIP** from [Releases](../../releases).
 2. Place its `CaptainToad-VR` folder beside `Cemu.exe`.
 3. Close Cemu and run `Start-VR.cmd`.
 4. Open Captain Toad: Treasure Tracker in Cemu and play with your gamepad or VR controllers.
@@ -65,7 +83,7 @@ See [INSTALL.md](INSTALL.md) for headset setup, graphics settings and FPS option
 | --- | --- |
 | System | Windows x64 |
 | Emulator | Cemu **2.6**, Vulkan renderer |
-| Game | European Wii U game with update **v16** installed |
+| Game | Wii U game with update **v16** installed |
 | Game identifiers | Title ID `0005000010180700` · module checksum `1B377483` (update v16) |
 | VR | An active OpenXR headset runtime |
 | Input | A configured gamepad or supported OpenXR VR controllers; emulated controller 1 must be a Wii U GamePad |
@@ -93,7 +111,7 @@ labels on your physical gamepad.
 | Zoom button (X) | Step through Diorama, Close diorama and First Person |
 | R3, first person | Recentre head position and straighten the view |
 | Right stick, first person | Turn freely through 360 degrees |
-| Left stick, first person | Move relative to the turned view |
+| Left stick, first person | Move relative to the horizontal headset direction and stick turning |
 | Y held + D-pad left/right | Choose a nearby lift or movable platform; a hand marks it |
 | Release Y | Touch the chosen one; a short press touches the nearest |
 | Right stick | Aim in the minecart and turn the Spinwheel; in first person hold Y for either |
@@ -112,8 +130,8 @@ gamepad table above. Other controller layouts have not been validated.
 | Right stick | Look; in first person turn freely through 360 degrees |
 | Left X, right stick click | Step through Diorama, Close diorama and First Person |
 | Left stick click | Recentre head position in first person |
-| Right controller, pointing | Touch point with the hand in the diorama views; aim with the crosshair in the minecart |
-| Right trigger | Touch where the right controller points; fire in the minecart; B in first person |
+| Right controller, pointing | Aim the touch hand in diorama or first person; aim the crosshair in the minecart |
+| Right trigger | Touch where the right controller points; fire in the minecart |
 | Left controller held to your head | The right stick acts as the D-pad; a short pulse confirms it |
 | Left Y held + right stick left/right, left controller at your head | Choose a nearby lift or movable platform; releasing Y touches it |
 | Left trigger, left grip, menu button | ZL, L, Plus |
@@ -134,8 +152,15 @@ only while they are in use.
 
 With a gamepad, hold **Y** and use **D-pad left/right** to choose a nearby
 lift or platform, then release Y to touch it. With VR controllers, point
-the right controller and hold its trigger to touch in either diorama view.
-Direct pointing is off in first person; use the selection controls instead.
+the right controller and hold its trigger to touch in either diorama view
+or first person. In first person the hand is visible before pressing the
+trigger so you can aim at enemies for touch-stunning. This new path awaits
+headset testing. This test build places the hand and minecart crosshair at
+the nearest collision point, falling back to their reference distance when
+no hit is available. Collision shapes may differ from visible models.
+The pointer uses a fist when its nearest target is recognized as an enemy,
+in every camera mode. Lifts, platforms and other targets use the pointing hand;
+the minecart keeps its crosshair. The fist indicates the target, not stun success.
 
 In the minecart, aim with the gamepad's right stick or the right VR
 controller. In first person, hold gamepad Y to aim with the stick.

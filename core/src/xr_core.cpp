@@ -577,6 +577,8 @@ void XrCore::detach() {
     m_touchChain={};m_touchReady=false;
     if(m_aimChain.handle)xrDestroySwapchain(m_aimChain.handle);
     m_aimChain={};m_aimMarker=false;m_markerFirstPerson=false;
+    if(m_stunChain.handle)xrDestroySwapchain(m_stunChain.handle);
+    m_stunChain={};m_stunMarker=false;
     if(m_hudChain.handle)xrDestroySwapchain(m_hudChain.handle);
     m_hudChain={};m_hudAnchorSet=false;m_hudReady=false;
     // Vor den Raeumen: die Handraeume gehoeren zur Sitzung und muessen
@@ -1158,15 +1160,13 @@ void XrCore::endFrame() {
     m_hudReady=false;
 
     // Each marker uses the pose of its rendered eye, not the next head pose.
-    // It is an overlay: it intentionally remains visible over an occluding wall.
+    // The guest supplies the nearest surface point when its query has a hit.
     std::array<XrCompositionLayerQuad,2> touchQuads{};
-    const auto& markerChain=m_aimMarker?m_aimChain:m_touchChain;
+    const auto& markerChain=m_aimMarker?m_aimChain:(m_stunMarker?m_stunChain:m_touchChain);
     if(m_touchReady && markerChain.hasContent && proj.viewCount==2) {
         // One shared world point around the centre of the eye pair gives
-        // correct stereo convergence. The hand stays AT its point, so that it
-        // visibly belongs to the block it moves (user, 2026-09-27: pulled to
-        // 1.1 m it floated in front of everything); the aim symbol is pushed
-        // out to at least 3 m so that it reads as a target in the level.
+        // correct stereo convergence. Preserve the supplied depth for both
+        // hand and aim symbol, including surfaces closer than three metres.
         XrVector3f markerCentre{};
         float markerDistance=0;
         {
@@ -1182,10 +1182,7 @@ void XrCore::endFrame() {
             }
             const XrVector3f d{markerCentre.x-eyeCentre.x,markerCentre.y-eyeCentre.y,markerCentre.z-eyeCentre.z};
             const float distance=std::sqrt(d.x*d.x+d.y*d.y+d.z*d.z);
-            markerDistance=m_aimMarker?(std::max)(distance,3.0f):distance;
-            markerDistance=(std::max)(0.3f,(std::min)(markerDistance,60.f));
-            const float factor=distance>0.0001f?markerDistance/distance:1.f;
-            markerCentre={eyeCentre.x+d.x*factor,eyeCentre.y+d.y*factor,eyeCentre.z+d.z*factor};
+            markerDistance=distance;
         }
         // A shared, time-based size pulse: no movement in depth or aim direction.
         const float phase=float(GetTickCount64()%1400)/1400.f;
@@ -1539,9 +1536,10 @@ static bool loadMarkerIcon(std::vector<uint8_t>& pixels, int resourceId) {
     return success;
 }
 
-bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool firstPerson) {
+bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool firstPerson,bool stun) {
     if(!m_frameActive)return false;
-    auto& chain=aim?m_aimChain:m_touchChain;
+    stun=stun && !aim;
+    auto& chain=aim?m_aimChain:(stun?m_stunChain:m_touchChain);
     if(!chain.handle) {
         XrSwapchainCreateInfo ci{XR_TYPE_SWAPCHAIN_CREATE_INFO};
         ci.usageFlags=XR_SWAPCHAIN_USAGE_SAMPLED_BIT|XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT|XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
@@ -1563,7 +1561,7 @@ bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool
         const bool bgra=m_format==DXGI_FORMAT_B8G8R8A8_UNORM || m_format==DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
         if(!bgra && m_format!=DXGI_FORMAT_R8G8B8A8_UNORM && m_format!=DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)return false;
         std::vector<uint8_t> pixels;
-        if(!loadMarkerIcon(pixels,aim?102:101)) {
+        if(!loadMarkerIcon(pixels,aim?102:(stun?103:101))) {
             CVR_ERR("touch.marker","icon_decode_failed=1 aim=%d",int(aim));return false;
         }
         if(bgra)for(size_t i=0;i<pixels.size();i+=4)std::swap(pixels[i],pixels[i+2]);
@@ -1582,6 +1580,7 @@ bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool
         CVR_INFO("touch.marker","icon_ready=1 aim=%d texture=256x256",int(aim));
     }
     m_touchPoints=points;m_touchReady=true;m_aimMarker=aim;m_markerFirstPerson=firstPerson;
+    m_stunMarker=stun;
     return true;
 }
 

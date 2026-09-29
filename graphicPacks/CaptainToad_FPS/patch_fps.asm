@@ -1,5 +1,5 @@
 [CaptainToadFPS_V16]
-moduleMatches = 0x1B377483
+moduleMatches = 0x1B377483, 0x9E0461E7, 0x0576A725
 .origin = codecave
 ctTelemetry:
 .int 0x43544650
