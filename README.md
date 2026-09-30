@@ -1,6 +1,6 @@
 # Captain Toad: Treasure Tracker VR
 
-**Alpha 1.1** · Windows x64 · Cemu · OpenXR
+**Alpha 1.11** · Windows x64 · Cemu · OpenXR
 
 Stereo rendering and six-degree-of-freedom head tracking for the Wii U
 version of **Captain Toad: Treasure Tracker**. Play with a gamepad or VR
@@ -26,6 +26,14 @@ menus are shown on a screen that stays fixed in the room.
 
 All modes include room-anchored menus and HUD, head tracking, and the VR
 controllers as the GamePad, touch screen included.
+
+## New in Alpha 1.11
+
+- Fixes VR stopping after roughly ten minutes, depending on the refresh rate.
+- Keeps rendered frames matched to their original headset poses when the internal
+  pose tokens wrap, and rejects expired pose-history entries.
+- Keeps the touch hand, stun fist and crosshair matched to their frames after
+  the token wrap.
 
 ## New in Alpha 1.1
 
@@ -67,7 +75,7 @@ see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
 
-1. Download the **Alpha 1.1 installation ZIP** from [Releases](../../releases).
+1. Download the **Alpha 1.11 installation ZIP** from [Releases](../../releases).
 2. Place its `CaptainToad-VR` folder beside `Cemu.exe`.
 3. Close Cemu and run `Start-VR.cmd`.
 4. Open Captain Toad: Treasure Tracker in Cemu and play with your gamepad or VR controllers.

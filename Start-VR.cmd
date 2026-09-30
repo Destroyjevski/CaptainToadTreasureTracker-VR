@@ -1,5 +1,5 @@
 @echo off
-rem Captain Toad: Treasure Tracker VR - Alpha 1.1
+rem Captain Toad: Treasure Tracker VR - Alpha 1.11
 rem Close Cemu before starting. See INSTALL.md for setup and KNOWN-ISSUES.md for limits.
 rem Set the active OpenXR headset to 120 Hz for the default FPS preset.
 set "CEMUVR_TOAD_WORLD_SIZE=2"

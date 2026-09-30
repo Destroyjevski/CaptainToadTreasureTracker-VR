@@ -44,6 +44,7 @@
 #include "cemuvr/reference_snapshot.h"
 #include "cemuvr/reference_pair.h"
 #include "cemuvr/reference_pose.h"
+#include "cemuvr/reference_pose_history.h"
 #include "cemuvr/reference_diagnostic.h"
 
 using namespace cemuvr;
@@ -103,13 +104,15 @@ struct DeviceData {
     ReferencePairImages referencePairImages;
     ReferenceHud referenceHud;
     EyeInterop hudInterop;
-    std::map<VkCommandBuffer,std::pair<VkImage,uint32_t>> referencePoseMarkers;
+    struct PoseMarker { VkImage image{}; uint32_t token{}; uint64_t publication{}; };
+    std::map<VkCommandBuffer,PoseMarker> referencePoseMarkers;
     VulkanCtx  vk{};
     bool       externalMemoryEnabled{false};
     std::map<VkSwapchainKHR, SwapRec> swapchains;
 };
 
 std::mutex g_mtx;
+ReferencePoseHistory referencePoseHistory;
 std::map<void*, InstanceData> g_instances;
 std::map<void*, DeviceData>   g_devices;
 std::map<VkSurfaceKHR, HWND>  g_surfaces;
@@ -665,7 +668,7 @@ VKAPI_ATTR void VKAPI_CALL ReferenceClearColor(VkCommandBuffer cb, VkImage image
     uint32_t poseToken{};
     if(referenceProbeEnabled() && envFlag("CEMUVR_REFERENCE_POSE_STAMP",true) && color && decodeReferencePoseToken(color->uint32,poseToken)) {
         std::lock_guard<std::mutex> lk(g_mtx);
-        dd->referencePoseMarkers[cb]={image,poseToken};return;
+        dd->referencePoseMarkers[cb]={image,poseToken,referencePoseHistory.bind(poseToken)};return;
     }
     ReferenceMarker marker{};
     if (referenceProbeEnabled() && color) {
@@ -679,15 +682,19 @@ VKAPI_ATTR void VKAPI_CALL ReferenceClearColor(VkCommandBuffer cb, VkImage image
     if (referenceProbeEnabled() && color && decodeReferenceMarker(color->uint32,marker)) {
         std::lock_guard<std::mutex> lk(g_mtx);
         auto it=dd->referenceImages.find(image);
+        uint64_t posePublication{};
         const auto meta=dd->referencePoseMarkers.find(cb);
         if(meta!=dd->referencePoseMarkers.end()) {
-            if(meta->second.first==image)poseToken=meta->second.second;
+            if(meta->second.image==image) {
+                poseToken=meta->second.token;
+                posePublication=meta->second.publication;
+            }
             dd->referencePoseMarkers.erase(meta);
         }
         const VkImageCreateInfo* info=it==dd->referenceImages.end()?nullptr:&it->second;
         if(info && count==1 && ranges && ranges[0].baseMipLevel==0 && ranges[0].baseArrayLayer==0) {
             dd->referenceSnapshots.record(dd->vk,cb,image,layout,*info,marker,poseToken);
-            if(envFlag("CEMUVR_REFERENCE_PAIR_TRANSPORT",true)) dd->referencePairImages.record(dd->vk,cb,image,layout,*info,marker,poseToken);
+            if(envFlag("CEMUVR_REFERENCE_PAIR_TRANSPORT",true)) dd->referencePairImages.record(dd->vk,cb,image,layout,*info,marker,poseToken,posePublication);
         }
         ++dd->referenceMarkers;
         // This command is our protocol marker. Preserve the original color image.
@@ -759,8 +766,6 @@ void acknowledgeReferenceProbe() {
     }
 }
 
-struct ReferencePoseHistoryEntry {uint32_t token{};CemuVR_FrameContext context{};};
-static std::array<ReferencePoseHistoryEntry,2048> referencePoseHistory{};
 
 void publishReferencePose(uint64_t generation) {
     // Explicit lab-only opt-in. Images still use the existing presentation policy.
@@ -844,22 +849,30 @@ void publishReferencePose(uint64_t generation) {
             anchor.orientation.x,anchor.orientation.y,anchor.orientation.z,anchor.orientation.w);
     }
     // Big-endian seqlock. Both guest eyes latch this once, before simulation.
-    // Bounded diagnostic protocol: never reuse a 16-bit token in this process.
-    if(packetVersion>=3 && sequence>=131070) {
-        if(!mailboxFailed)CVR_ERR("reference.pose","token_limit_restart_required=1");
-        mailboxFailed=true;return;
+    ReferencePoseHistory::Published published{};
+    if(packetVersion>=3) {
+        // Explicit opt-in for bounded FakeHMD/diagnostic runs only. Normal
+        // sessions reuse wire tokens while keeping full host identities.
+        static const bool strictTokenLimit=envFlag("CEMUVR_REFERENCE_STRICT_TOKEN_LIMIT",false);
+        published=referencePoseHistory.publish(fc,strictTokenLimit,nextReferencePoseSequence(sequence));
+        if(!published.token) {
+            CVR_ERR("reference.token","diagnostic_limit=1 strict_token_limit=1 restart_required=1");
+            mailboxFailed=true;return;
+        }
+        if(published.wrapped)
+            CVR_INFO("reference.token","wrap=1 previous=65535 next=1 publication=%llu",
+                (unsigned long long)published.publication);
     }
-    sequence+=2;if(!sequence)sequence=2;
+    sequence=nextReferencePoseSequence(sequence);
     InterlockedExchange((volatile LONG*)(packet+8),_byteswap_ulong(sequence-1));
     uint32_t payload[91]{};payload[0]=_byteswap_ulong(1);
     payload[1]=_byteswap_ulong(uint32_t(fc.poseSerial));
     for(int i=0;i<24;++i){uint32_t bits;std::memcpy(&bits,&deltas[i],4);payload[i+3]=_byteswap_ulong(bits);}
     if(packetVersion>=2)for(int i=0;i<16;++i){uint32_t bits;std::memcpy(&bits,&projection[i],4);payload[i+27]=_byteswap_ulong(bits);}
     if(packetVersion>=3) {
-        const uint32_t token=sequence/2;
+        const uint32_t token=published.token;
         for(int i=0;i<2;++i){const uint32_t byte=(token>>(i?0:8))&255;float encoded=byte==255?1.f:(byte+.25f)/255.f;
             uint32_t bits;std::memcpy(&bits,&encoded,4);payload[43+i]=_byteswap_ulong(bits);}
-        referencePoseHistory[token%referencePoseHistory.size()]={token,fc};
     }
     if(packetVersion>=4)for(int i=0;i<6;++i){uint32_t bits;std::memcpy(&bits,&scalars[i],4);payload[45+i]=_byteswap_ulong(bits);}
     if(packetVersion>=5) {
@@ -956,14 +969,14 @@ void touchMarkerSummary() {
         (unsigned long long)t.stale,(unsigned long long)t.flags,(unsigned long long)t.behind,
         (unsigned long long)t.acceptedHand,(unsigned long long)t.acceptedAim);
 }
-bool readTouchMarker(int slot,uint32_t token,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson,bool& stun) {
+bool readTouchMarker(int slot,uint32_t poseSequence,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson,bool& stun) {
     ++g_touchMarkerStats.calls;
     static uint8_t* packet=nullptr;
     static uint8_t* previousBase=nullptr;
     static ULONGLONG nextScan=0;
     auto* base=g.bridge.guestMemoryBase();
     if(base!=previousBase){packet=nullptr;previousBase=base;nextScan=0;}
-    if(!base || slot<0 || slot>1 || !token || token>=0x10000)return false;
+    if(!base || slot<0 || slot>1 || !poseSequence || (poseSequence&1))return false;
     const uint8_t signature[]={0x43,0x54,0x4D,0x4B,0,0,0,1};
     if(!packet) {
         if(GetTickCount64()<nextScan)return false;
@@ -998,7 +1011,7 @@ bool readTouchMarker(int slot,uint32_t token,std::array<XrVector3f,2>& points,bo
     // Empty (no target published) is the normal case and counted apart from
     // a record that exists but belongs to another pair or is malformed.
     if(!raw[0] || !raw[1]){++g_touchMarkerStats.empty;return false;}
-    if(raw[0]!=raw[8] || (raw[0]&1) || ((raw[0]/2)&0xffff)!=token || raw[1]!=raw[9]){++g_touchMarkerStats.stale;return false;}
+    if(!referencePoseSequenceMatches(raw[0],raw[8],poseSequence) || raw[1]!=raw[9]){++g_touchMarkerStats.stale;return false;}
     if(raw[5]!=raw[13] || raw[5]>1 || raw[6]!=raw[14] || raw[6]>1){++g_touchMarkerStats.flags;return false;}
     aim=raw[6]==1;
     firstPerson=raw[5]==1;
@@ -1121,22 +1134,23 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
             surface.heightMetres=surface.widthMetres*float(pairs.height)/float(pairs.width);
             g.xr.setSurface(surface);
         } else if(g.xr.surfaceActive())g.xr.clearSurface();
-        const auto& stamp=referencePoseHistory[token%referencePoseHistory.size()];
-        const bool stampValid=token && token<0x10000 && token==pairs.poseTokens[slot*2+1] && stamp.token==token;
+        const auto* stamp=referencePoseHistory.pair(pairs.posePublications[slot*2],pairs.posePublications[slot*2+1],
+            token,pairs.poseTokens[slot*2+1]);
+        const bool stampValid=stamp!=nullptr;
         if(surfaceFrame || !strict || stampValid) {
         const auto left=g.xr.submitEye(CEMUVR_EYE_LEFT,g.interop.d3dTexture(0));
         const auto right=g.xr.submitEye(CEMUVR_EYE_RIGHT,g.interop.d3dTexture(1));
         submitted=left==SubmitResult::Ok && right==SubmitResult::PairComplete;
-        if(strict && submitted && !surfaceFrame)submitted=g.xr.stampRenderedPair(stamp.context);
+        if(strict && submitted && !surfaceFrame)submitted=g.xr.stampRenderedPair(stamp->context);
         }
         if(strict && (generation<=4 || generation%120==0 || (!stampValid && !surfaceFrame)))
             CVR_INFO("reference.stamp","generation=%llu tokens=%u/%u valid=%d renderSerial=%llu submitted=%d",
                 (unsigned long long)generation,token,pairs.poseTokens[slot*2+1],int(stampValid),
-                (unsigned long long)(stampValid?stamp.context.poseSerial:0),int(submitted));
+                (unsigned long long)(stampValid?stamp->context.poseSerial:0),int(submitted));
         if(submitted && !surfaceFrame && hudHeld)g.xr.submitHud(dd->hudInterop.d3dTexture(0));
         if(submitted && !surfaceFrame && stampValid) {
             std::array<XrVector3f,2> points{};bool aim=false,firstPerson=false,stun=false;
-            if(readTouchMarker(slot,token,points,aim,firstPerson,stun))g.xr.setTouchMarker(points,aim,firstPerson,stun);
+            if(readTouchMarker(slot,stamp->mailboxSequence,points,aim,firstPerson,stun))g.xr.setTouchMarker(points,aim,firstPerson,stun);
         }
         perf.submit=perfMs()-stage;stage=perfMs();
         perf.surface=g.xr.surfaceActive()?1:0;

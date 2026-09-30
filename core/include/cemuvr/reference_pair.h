@@ -26,6 +26,7 @@ struct ReferencePairImages {
     uint32_t width{},height{};VkFormat format{},sourceFormat{};
     ReferencePairOrder order;
     uint32_t poseTokens[4]{};
+    uint64_t posePublications[4]{}; // Bound at pose-marker interception, never inferred at presentation.
     // When each eye image was marked finished, per slot and eye. Used only to
     // decompose the frame period; never affects pairing or delivery.
     double recordTime[4]{};
@@ -62,7 +63,7 @@ struct ReferencePairImages {
         return true;
     }
     void record(const VulkanCtx& vk,VkCommandBuffer cb,VkImage source,VkImageLayout layout,
-                const VkImageCreateInfo& ci,const ReferenceMarker& marker,uint32_t poseToken=0) {
+                const VkImageCreateInfo& ci,const ReferenceMarker& marker,uint32_t poseToken=0,uint64_t posePublication=0) {
         if(failed || marker.target!=1 || marker.eye>1 || marker.slot>1)return;
         if(ci.imageType!=VK_IMAGE_TYPE_2D || ci.arrayLayers!=1 || ci.samples!=VK_SAMPLE_COUNT_1_BIT ||
            ci.extent.depth!=1 || !ci.extent.width || !ci.extent.height || ci.extent.width>8192 || ci.extent.height>8192 ||
@@ -88,6 +89,7 @@ struct ReferencePairImages {
         bars[1].srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;bars[1].dstAccessMask=VK_ACCESS_MEMORY_READ_BIT;
         vk.fn.CmdPipelineBarrier(cb,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,0,nullptr,0,nullptr,2,bars);
         im.written=true;poseTokens[marker.slot*2+marker.eye]=poseToken;
+        posePublications[marker.slot*2+marker.eye]=posePublication;
         recordTime[marker.slot*2+marker.eye]=perfMs();
         order.observe(marker.eye,marker.slot);
         // Same command buffer, right at the marker: the GPU delta between a

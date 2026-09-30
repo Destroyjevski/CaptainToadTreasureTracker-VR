@@ -1,3 +1,16 @@
+# Alpha 1.11 Hotfix
+
+- Fixes VR stopping after roughly ten minutes, depending on the refresh rate.
+- Keeps rendered frames matched to their original headset poses when the internal
+  pose tokens wrap, and rejects expired pose-history entries.
+- Keeps the touch hand, stun fist and crosshair matched to their frames after
+  the token wrap.
+
+Offline regression tests passed for 24 simulated hours each at 60, 90, 120 and
+144 Hz, including 544 token wraps.
+
+---
+
 # Alpha 1.1
 
 ## SteamVR compatibility
