@@ -29,10 +29,42 @@ The touch hand, crosshair and stun fist are the three PNG images under `core/ass
 `core/touch_icon.rc` embeds them into the DLL as resources, so they have to
 stay beside it.
 
+The launcher automatically prepares hammer, turnip, pull-switch and coin
+markers from the user's own unpacked Captain Toad installation. It searches
+Cemu's configured game folders and installed titles, validates the title ID,
+and reads only the four required ObjectData archives. Raw models and textures
+stay in memory. Generated PNGs are cached outside the mod under
+`%LOCALAPPDATA%/CemuVR/CaptainToad/marker-icons/`.
+
+`tools/marker-import/Prepare-Markers.ps1` and `MarkerImporter.cs` run with
+Windows PowerShell 5.1 and the Windows .NET Framework; no Python, download or
+extra installation is needed. The cache key includes the importer and archive
+hashes; image hashes are checked before reuse. Missing/corrupt images regenerate.
+The launcher passes the verified directory to the DLL through
+`CEMUVR_MARKER_ICON_DIR`. Old PNG overrides beside the DLL are not loaded.
+
+If no supported unpacked installation is found, or importing fails, the mod
+uses the existing project-created fallback artwork (neutral ring for coins).
+Direct importing from WUA/WUD/WUX containers is not implemented.
+
+The generated images, original models/textures and game code must never be
+packaged. Use `tools/package.py`: it checks approved project artwork by path
+and SHA-256, DLL resources and embedded PNGs, and rejects game-data containers
+and unreviewed binary files. Never add game-derived images to its allowlist.
+Both archives include the complete importer source and its GPL-3.0 notice;
+the importer is a separate launcher-side tool, not part of the VR DLL.
+
+Run the offline distribution checks with:
+
+```powershell
+$env:CEMUVR_TEST_DLL = (Resolve-Path ../Build/layer/cemuvr_layer.dll).Path
+python -m unittest discover -s tools -p test_distribution_assets.py
+```
+
 The files under `graphicPacks/` are assembled by Cemu when it starts the game.
 No game executable is required to compile the C++ layer.
 
-## Package Alpha 1.11
+## Package Alpha 1.2
 
 ```powershell
 python tools/package.py --dll build/Release/cemuvr_layer.dll

@@ -1,3 +1,49 @@
+# Alpha 1.2
+
+## Touch preview and target symbols
+
+- Hold the right grip to show the blue touch preview and aim with the right
+  controller. The right trigger activates the touch; grip alone does not.
+- Uses a hammer for enemy stunning, a pull-switch for lifts and platforms,
+  and a coin for hidden-coin surfaces. Symbols follow the current target,
+  without retaining the preceding target's identity after a level change.
+- Shows an action symbol only when a matching interaction target is found.
+  The minecart turnip marker appears only while riding.
+- Places the preview ring and action symbol at the same reported collision
+  point in all three camera modes, correcting their first-person mismatch.
+
+## First-person headlamp
+
+- The lamp follows the headset's horizontal and vertical look direction,
+  independently of the character's facing direction and idle animation.
+- Preserves the native lamp position, brightness, range, activation and wall
+  collision. Other camera modes keep their normal lighting.
+
+## Menus and startup
+
+- Menu stick navigation advances one item per deliberate deflection, avoiding
+  repeated jumps while the stick remains held.
+- Finds the correct Cemu data folder when settings.xml is stored beside
+  Cemu.exe, as well as portable and AppData installations.
+
+## Locally prepared interaction symbols
+
+- The launcher automatically prepares hammer, turnip, pull-switch and coin
+  markers from the user's own unpacked game installation. The mod does not
+  distribute Nintendo graphics, models or game code.
+- Stores the generated images in a local cache outside the mod, verifies them
+  on subsequent starts and regenerates damaged images.
+- Keeps the project's own hand, fist and crosshair as fallbacks. If the game
+  is available only as a WUA/WUD/WUX container, the fallback symbols are used.
+- No additional software installation is required. Complete source and license
+  notices for the separate launcher-side importer are included.
+
+The interaction and lamp changes have been tested locally in the headset.
+Collision shapes can still differ from visible geometry. All previous features
+and the Alpha 1.11 long-session pose-token hotfix remain included.
+
+---
+
 # Alpha 1.11 Hotfix
 
 - Fixes VR stopping after roughly ten minutes, depending on the refresh rate.

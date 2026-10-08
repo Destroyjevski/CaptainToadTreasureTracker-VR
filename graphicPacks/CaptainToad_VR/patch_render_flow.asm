@@ -469,6 +469,8 @@ lis r12, rrMenuCameraUsed@ha
 addi r12, r12, rrMenuCameraUsed@l
 add r12, r12, r11
 lwz r11, 0(r12)
+lis r12, mnInput@ha
+stw r11, mnInput@l(r12) ; last completed view: 0 menu canvas, 1 world
 cmpwi r11, 0
 bne rrMenuMetadataDone
 lis r12, rrMenuMetadataMagic@ha
@@ -2364,6 +2366,14 @@ lwz r0, 56(r9)
 stw r0, 16(r11)
 lwz r0, 60(r9)
 stw r0, 20(r11)
+; rrCameraHook is a leaf on this path: preserve its caller return address.
+stwu r1, -0x10(r1)
+mflr r0
+stw r0, 0x14(r1)
+bl hlCaptureView
+lwz r0, 0x14(r1)
+mtlr r0
+addi r1, r1, 0x10
 smEyeDone:
 lis r12, rrSlot@ha
 lwz r11, rrSlot@l(r12)
@@ -2426,22 +2436,32 @@ addi r8, r7, -0x34 ; existing point read at +60 now refers to ctAim+2C
 b xtMarkerHaveTarget
 ctAimMarkerFallback:
 ; Tablet pointer cursor: the touch hand where the ray meets the level.
-; A held lift selection keeps its own hand; the pointer yields to it.
-lwz r0, 0x54(r8)
-cmpwi r0, 0
-bne tpMarkerFallback
-lis r7, tpPointer@ha
-addi r7, r7, tpPointer@l
-lwz r0, 80(r7)
+; Gamepad selection is the fallback when the motion preview is not held.
+; Motion preview requires a tracked controller and grip or trigger.
+lis r11, mtPad@ha
+addi r11, r11, mtPad@l
+lwz r0, 0(r11)
 cmpwi r0, 0
 beq tpMarkerFallback
+lwz r0, 88(r11)
+cmpwi r0, 0
+beq tpMarkerFallback
+lwz r0, 140(r11)
+andi. r0, r0, 48
+beq tpMarkerFallback
+lis r7, tpPointer@ha
+addi r7, r7, tpPointer@l
+lwz r0, 8(r7)
+cmpwi r0, 0
+beq tpMarkerFallback
+lwz r0, 104(r7)
+cmpwi r0, 1
+bne xtMarkerDone
 lwz r11, 8(r8)
-lwz r0, 84(r7)
+lwz r0, 100(r7)
 subf r11, r0, r11
 cmplwi r11, 1
 bgt tpMarkerFallback
-li r0, 2
-stw r0, 4(r12)
 li r0, 0
 stw r0, 24(r12)
 lwz r11, 168(r7)
@@ -2470,9 +2490,26 @@ lis r11, smHit@ha
 addi r11, r11, smHit@l
 lwz r0, 116(r11)
 cmpwi r0, 1
-bne smDirectHand
+beq smDirectEnemy
+cmpwi r0, 3
+beq smDirectCoin
+cmpwi r0, 2
+bne gpSurfaceRing
+li r0, 2
+b smDirectKind
+smDirectEnemy:
 li r0, 3
+b smDirectKind
+smDirectCoin:
+li r0, 5
+smDirectKind:
 stw r0, 4(r12)
+b smDirectHand
+gpSurfaceRing:
+li r0, 4
+stw r0, 4(r12)
+li r0, 2
+stw r0, 24(r12) ; independent visual preview, no native touch
 smDirectHand:
 
 lis r8, smHit@ha
@@ -2480,7 +2517,35 @@ addi r8, r8, smHit@l
 addi r8, r8, -64 ; point read at +96 is smHit+32
 b xtMarkerHaveTarget
 smHandFallback:
-addi r8, r7, -28
+; No surface: keep a quiet pointer along the fresh ray, without a target icon.
+lis r11, gpPoint@ha
+addi r11, r11, gpPoint@l
+lwz r0, 0x90(r8)
+cmpwi r0, 1
+lfs f2, 12(r11)
+bne gpFallbackDistance
+lfs f2, 16(r11)
+gpFallbackDistance:
+lfs f0, 52(r9)
+lfs f1, 88(r7)
+fmuls f1, f1, f2
+fadds f0, f0, f1
+stfs f0, 0(r11)
+lfs f0, 56(r9)
+lfs f1, 92(r7)
+fmuls f1, f1, f2
+fadds f0, f0, f1
+stfs f0, 4(r11)
+lfs f0, 60(r9)
+lfs f1, 96(r7)
+fmuls f1, f1, f2
+fadds f0, f0, f1
+stfs f0, 8(r11)
+li r0, 4
+stw r0, 4(r12)
+li r0, 2
+stw r0, 24(r12)
+addi r8, r11, -96
 b xtMarkerHaveTarget
 tpMarkerFallback:
 lwz r0, 0x54(r8)
@@ -4384,6 +4449,7 @@ beq xtInputFinish
 stw r8, 0x3C(r12)
 xtInputFinish:
 stw r8, 0x10C(r29)
+bl mnFilterSticks
 .int 0xC8010040
 .int 0xC8210048
 .int 0xC8410050
@@ -7078,114 +7144,21 @@ li r0, 1
 stw r0, 24(r12)
 b tpPointerDone
 tpPointerNoCart:
-; FP supplies a world ray to the native touch collision query.
-lis r8, tfEyeAnchor@ha
-addi r8, r8, tfEyeAnchor@l
-lwz r0, 12(r8)
-cmpwi r0, 1
-bne tpFpPadDiorama
-lis r8, tpFpRay@ha
-addi r8, r8, tpFpRay@l
-lwz r0, 0(r8)
+; Grip previews, trigger touches. Both use the same unprojected world ray.
+li r0, -33
+stw r0, 20(r12)
+lwz r0, 104(r7)
 cmpwi r0, 1
 bne tpPointerDone
 lis r11, xtData@ha
 addi r11, r11, xtData@l
 lwz r11, 8(r11)
-lwz r0, 4(r8)
+lwz r0, 100(r7)
 subf r11, r0, r11
 cmplwi r11, 2
 bgt tpPointerDone
-; Touch coordinates retain native pressed/released bookkeeping; FP picking
-; itself uses our world ray, so it is not clipped to the old TV rectangle.
 lfs f5, 108(r7)
 fmr f6, f5
-b tpFpPadCoordinates
-tpFpPadDiorama:
-; The game's perspective object, as the pack tracks it.
-lis r8, rrProjectionSource@ha
-addi r8, r8, rrProjectionSource@l
-lwz r8, 0(r8)
-lis r0, 0x1000
-cmplw r8, r0
-blt tpPointerDone
-lis r0, 0x5000
-cmplw r8, r0
-bge tpPointerDone
-andi. r0, r8, 3
-bne tpPointerDone
-lwz r0, 144(r8)
-lis r11, rrProjectionVtable@ha
-addi r11, r11, rrProjectionVtable@l
-lwz r11, 0(r11)
-cmpw r0, r11
-bne tpPointerDone
-lwz r11, 168(r8)
-lwz r0, 140(r7)
-cmplw r11, r0
-blt tpPointerDone
-lwz r0, 144(r7)
-cmplw r11, r0
-bgt tpPointerDone
-lwz r11, 172(r8)
-lwz r0, 148(r7)
-cmplw r11, r0
-blt tpPointerDone
-lwz r0, 152(r7)
-cmplw r11, r0
-bgt tpPointerDone
-lfs f1, 168(r8)
-lfs f2, 172(r8)
-; Forward means -z clearly positive.
-lfs f3, 44(r7)
-fneg f3, f3
-lfs f4, 132(r7)
-fcmpu cr0, f3, f4
-ble tpPointerDone
-lfs f5, 36(r7)
-fdivs f5, f5, f3
-lfs f6, 40(r7)
-fdivs f6, f6, f3
-fmuls f7, f1, f2
-fdivs f5, f5, f7
-fdivs f6, f6, f1
-lfs f8, 108(r7)
-fmuls f5, f5, f8
-fadds f5, f5, f8
-fmuls f6, f6, f8
-fsubs f6, f8, f6
-stfs f5, 24(r7)
-stfs f6, 28(r7)
-lfs f9, 120(r7)
-lfs f10, 124(r7)
-fcmpu cr0, f5, f9
-blt tpPointerDone
-fcmpu cr0, f5, f10
-bgt tpPointerDone
-fcmpu cr0, f6, f9
-blt tpPointerDone
-fcmpu cr0, f6, f10
-bgt tpPointerDone
-lfs f11, 128(r7)
-fcmpu cr0, f5, f11
-bge tpPointerClampLo5
-fmr f5, f11
-tpPointerClampLo5:
-lfs f11, 136(r7)
-fcmpu cr0, f5, f11
-ble tpPointerClampHi5
-fmr f5, f11
-tpPointerClampHi5:
-lfs f11, 128(r7)
-fcmpu cr0, f6, f11
-bge tpPointerClampLo6
-fmr f6, f11
-tpPointerClampLo6:
-lfs f11, 136(r7)
-fcmpu cr0, f6, f11
-ble tpPointerClampHi6
-fmr f6, f11
-tpPointerClampHi6:
 tpFpPadCoordinates:
 lfs f11, 112(r7)
 fmuls f5, f5, f11
@@ -7198,8 +7171,8 @@ stw r0, 8(r7)
 lwz r11, 160(r7)
 addi r11, r11, 1
 stw r11, 160(r7)
-; The trigger touches; while it is the pen it is not B.
-li r0, -17
+; Only the trigger touches; grip previews without sending native R.
+li r0, -49
 stw r0, 20(r12)
 lwz r11, 140(r9)
 andi. r11, r11, 16
@@ -8222,6 +8195,8 @@ stw r0, 0(r12)
 stw r0, 4(r12)
 stw r0, 100(r12)
 stw r0, 116(r12)
+stw r0, 120(r12) ; per-query mesh kind, never carried across targets
+stw r0, 124(r12)
 lfs f0, 80(r12)
 stfs f0, 68(r12)
 lis r11, xtData@ha
@@ -8258,6 +8233,18 @@ lwz r0, 40(r7)
 stw r0, 92(r12)
 b smPrepareVectors
 smPrepareSelection:
+lis r7, mtPad@ha
+addi r7, r7, mtPad@l
+lwz r0, 0(r7)
+cmpwi r0, 0
+beq smPrepareGamepadSelection
+lwz r0, 88(r7)
+cmpwi r0, 0
+beq smPrepareGamepadSelection
+lwz r0, 140(r7)
+andi. r0, r0, 48
+bne smPreparePen
+smPrepareGamepadSelection:
 lwz r0, 0x54(r11)
 cmpwi r0, 0
 beq smPreparePen
@@ -8325,77 +8312,23 @@ li r0, 2
 stw r0, 16(r12)
 b smPrepareVectors
 smPreparePen:
-lis r11, tpFpRay@ha
-addi r11, r11, tpFpRay@l
-lwz r0, 0(r11)
-cmpwi r0, 1
-bne smPrepareDiorama
+smPrepareDiorama:
+; The exact same origin/direction drives hover and the native touch query
+; in every camera mode. Never fall back to a different TV-screen ray.
 lis r12, mtPad@ha
 addi r12, r12, mtPad@l
 lwz r0, 0(r12)
 cmpwi r0, 0
-beq smPrepareDiorama
+beq smPrepareDone
 lwz r0, 88(r12)
 cmpwi r0, 0
-beq smPrepareDiorama
-lis r12, tpPointer@ha
-addi r12, r12, tpPointer@l
-lwz r0, 8(r12)
-cmpwi r0, 1
-bne smPrepareDiorama
-lis r12, tfEyeAnchor@ha
-addi r12, r12, tfEyeAnchor@l
-lwz r0, 12(r12)
-cmpwi r0, 1
-bne smPrepareDiorama
-lis r12, xtData@ha
-addi r12, r12, xtData@l
-lwz r0, 0x90(r12)
-cmpwi r0, 1
-bne smPrepareDiorama
-lwz r12, 8(r12)
-lwz r0, 4(r11)
-subf r12, r0, r12
-cmplwi r12, 2
-bgt smPrepareDiorama
-lis r12, smHit@ha
-addi r12, r12, smHit@l
-li r0, 1
-stw r0, 0(r12)
-li r0, 0
-stw r0, 16(r12)
-lis r7, tpPointer@ha
-addi r7, r7, tpPointer@l
-lwz r0, 8(r11)
-stw r0, 20(r12)
-lwz r0, 88(r7)
-stw r0, 84(r12)
-lwz r0, 12(r11)
-stw r0, 24(r12)
-lwz r0, 92(r7)
-stw r0, 88(r12)
-lwz r0, 16(r11)
-stw r0, 28(r12)
-lwz r0, 96(r7)
-stw r0, 92(r12)
-b smPrepareVectors
-smPrepareDiorama:
-lis r12, smHit@ha
-addi r12, r12, smHit@l
+beq smPrepareDone
 lis r7, tpPointer@ha
 addi r7, r7, tpPointer@l
 lwz r0, 8(r7)
 cmpwi r0, 1
 bne smPrepareDone
-lis r11, tfEyeAnchor@ha
-addi r11, r11, tfEyeAnchor@l
-lwz r0, 12(r11)
-cmpwi r0, 1
-beq smPrepareDone
-li r0, 3
-stw r0, 0(r12)
-li r0, 0
-stw r0, 16(r12)
+bl smHoverDiorama
 b smPrepareDone
 smPrepareVectors:
 lfs f0, 20(r12)
@@ -8431,6 +8364,90 @@ lwz r0, 8(r1)
 lwz r0, 0x24(r1)
 mtlr r0
 addi r1, r1, 0x20
+blr
+; Shared motion-pointer ray for hover and trigger, in all camera modes.
+; Querying this ray never fabricates a touch press.
+smHoverDiorama:
+stwu r1, -0x10(r1)
+mflr r0
+stw r0, 0x14(r1)
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+li r0, 0
+stw r0, 0(r12)
+lis r7, tpPointer@ha
+addi r7, r7, tpPointer@l
+lwz r0, 104(r7)
+cmpwi r0, 1
+bne smHoverDioramaDone
+lis r11, xtData@ha
+addi r11, r11, xtData@l
+lwz r8, 8(r11)
+lwz r0, 100(r7)
+subf r8, r0, r8
+cmplwi r8, 1
+bgt smHoverDioramaDone
+lis r6, smEye@ha
+addi r6, r6, smEye@l
+lwz r0, 0(r6)
+cmpwi r0, 1
+bne smHoverDioramaDone
+lwz r0, 8(r6)
+lwz r8, 0x90(r11)
+cmpw r0, r8
+bne smHoverDioramaDone
+lwz r8, 8(r11)
+lwz r0, 4(r6)
+subf r8, r0, r8
+cmplwi r8, 1
+bgt smHoverDioramaDone
+lwz r0, 12(r6)
+stw r0, 20(r12)
+lwz r0, 88(r7)
+stw r0, 84(r12)
+lwz r0, 16(r6)
+stw r0, 24(r12)
+lwz r0, 92(r7)
+stw r0, 88(r12)
+lwz r0, 20(r6)
+stw r0, 28(r12)
+lwz r0, 96(r7)
+stw r0, 92(r12)
+li r0, 1
+stw r0, 0(r12)
+li r0, 0
+stw r0, 16(r12)
+lfs f0, 20(r12)
+lfs f1, 84(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 44(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 56(r12)
+lfs f0, 24(r12)
+lfs f1, 88(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 48(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 60(r12)
+lfs f0, 28(r12)
+lfs f1, 92(r12)
+lfs f2, 76(r12)
+fmuls f2, f1, f2
+fadds f2, f0, f2
+stfs f2, 52(r12)
+lfs f2, 72(r12)
+fmuls f1, f1, f2
+stfs f1, 64(r12)
+smHoverDioramaDone:
+lwz r0, 0x14(r1)
+mtlr r0
+addi r1, r1, 0x10
 blr
 smHover:
 stwu r1, -0xD0(r1)
@@ -8477,6 +8494,14 @@ beq smHoverQuery
 cmpwi r0, 2
 beq smHoverQuery
 cmpwi r0, 4
+beq smHoverQuery
+cmpwi r0, 3
+bne smHoverDone
+bl smHoverDiorama
+lis r12, smHit@ha
+addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 1
 bne smHoverDone
 smHoverQuery:
 lwz r29, 8(r30)
@@ -8506,6 +8531,7 @@ mr r4, r27
 bl 0x0238CE8C
 cmpwi r3, 0
 beq smHoverNext
+mr r4, r28
 bl smSensorCandidate
 smHoverNext:
 addi r27, r27, 1
@@ -8552,7 +8578,39 @@ lwz r0, 8(r1)
 addi r1, r1, 0xD0
 lwz r3, 8(r30)
 blr
-0x0215ADA4 = bla smHover
+smHoverBeforeInput:
+stwu r1, -0x10(r1)
+mflr r0
+stw r0, 0x14(r1)
+stw r3, 8(r1)
+bl smHover
+lwz r3, 8(r1)
+lwz r0, 0x14(r1)
+mtlr r0
+addi r1, r1, 0x10
+lbz r0, 0x29(r30) ; displaced native touch-enable read
+blr
+0x0215A958 = bla smHoverBeforeInput
+
+; These two native screen-space widgets follow tablet coordinates, not the
+; VR ray. Hide only these widgets while a tracked VR pointer owns aiming.
+; Native touch processing and gamepad visuals retain their original paths.
+tpNativeWidget:
+lis r12, mtPad@ha
+addi r12, r12, mtPad@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq tpNativeWidgetOriginal
+lwz r0, 88(r12)
+cmpwi r0, 0
+beq tpNativeWidgetOriginal
+b 0x0238EB3C
+tpNativeWidgetOriginal:
+b 0x020FDE3C
+0x0215AA18 = bla tpNativeWidget
+0x0215AA20 = bla tpNativeWidget
+0x0215AA94 = bla tpNativeWidget
+0x0215AA9C = bla tpNativeWidget
 smNormalize:
 lis r12, smHit@ha
 addi r12, r12, smHit@l
@@ -8667,6 +8725,12 @@ beq smMeshClassified
 lwz r3, 0x2C(r3)
 bl smClassifyOwner
 smMeshClassified:
+; Keep the nearest mesh classification while native touch sensors are tested.
+; A sensor at the same surface must not turn a confirmed lift into an enemy.
+lwz r0, 116(r12)
+stw r0, 120(r12)
+lwz r0, 68(r12)
+stw r0, 124(r12)
 lwz r0, 0(r12)
 cmpwi r0, 4
 bne smMeshDone
@@ -8751,6 +8815,7 @@ stw r12, 56(r1)
 .int 0xD98100A0
 .int 0xD9A100A8
 mr r3, r21
+lwz r4, 0x8C(r29)
 bl smSensorCandidate
 .int 0xC8010040
 .int 0xC8210048
@@ -8799,17 +8864,55 @@ smSensorAny:
 stwu r1, -0x10(r1)
 mflr r0
 stw r0, 0x14(r1)
-addi r7, r3, 0x20
+lwz r0, 116(r12)
+stw r0, 8(r1)
+lwz r0, 68(r12)
+stw r0, 12(r1)
+; r4 is the collector's actual surface entry point, also used by
+; the native touch effect. Do not use the sensor's centre.
+mr r7, r4
 bl smCandidate
 cmpwi r8, 0
 beq smSensorClassified
+li r0, 2
+stw r0, 116(r12) ; native touch sensor, before the enemy override
 lwz r3, 0x2C(r3)
 bl smClassifyOwner
+; Preserve a coin at the same surface regardless of sensor iteration order.
+; A closer target still wins. These values belong only to this query.
+lwz r0, 8(r1)
+cmpwi r0, 3
+bne smSensorPreferSurface
+lfs f0, 12(r1)
+lfs f1, 68(r12)
+fcmpu cr0, f0, f1
+bne smSensorPreferSurface
+li r0, 3
+stw r0, 116(r12)
+smSensorPreferSurface:
+bl smPreferLiftSurface
 smSensorClassified:
 lwz r0, 0x14(r1)
 mtlr r0
 addi r1, r1, 0x10
 smSensorDone:
+blr
+smPreferLiftSurface:
+; A hidden coin on the surface retains its own action icon.
+lwz r0, 116(r12)
+cmpwi r0, 3
+beq smPreferLiftDone
+; Only exact surface ties are resolved here. A genuinely closer enemy still wins.
+lwz r0, 120(r12)
+cmpwi r0, 2
+bne smPreferLiftDone
+lfs f0, 68(r12)
+lfs f1, 124(r12)
+fcmpu cr0, f0, f1
+bne smPreferLiftDone
+li r0, 2
+stw r0, 116(r12)
+smPreferLiftDone:
 blr
 smSensorNear:
 stwu r1, -0xD0(r1)
@@ -8925,6 +9028,20 @@ stw r12, 56(r1)
 .int 0xD9A100A8
 lis r12, smHit@ha
 addi r12, r12, smHit@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq smQueryPublishDone
+andi. r0, r30, 0x44
+beq smQueryPublishDone
+lwz r0, 0x9C(r29)
+stw r0, 32(r12)
+lwz r0, 0xA0(r29)
+stw r0, 36(r12)
+lwz r0, 0xA4(r29)
+stw r0, 40(r12)
+li r0, 1
+stw r0, 4(r12)
+smQueryPublishDone:
 li r0, 0
 stw r0, 0(r12)
 .int 0xC8010040
@@ -8990,7 +9107,7 @@ fcmpu cr0, f0, f1
 blt smCandidateDone
 lfs f1, 68(r12)
 fcmpu cr0, f0, f1
-bge smCandidateDone
+bgt smCandidateDone
 lfs f1, 96(r12)
 fcmpu cr0, f0, f1
 bgt smCandidateDone
@@ -9009,11 +9126,33 @@ li r8, 1
 smCandidateDone:
 blr
 smClassifyOwner:
-; Touch sensors are not HitSensors. Inspect the owner's HitSensorKeeper
-; (native getter 0233C81C), then the documented native body categories.
-; Unknown targets, terrain, lifts and pure attack/projectile sensors use hand.
+; Classify the current hit owner, never a remembered target. The native
+; switch/lift actor has this vtable from construction (021060FC/02106198).
+; It is the same class already guarded by xtUpdate. Recognize it before
+; any use/range registration and do not let its body sensors override it.
 cmpwi r3, 0
 beq smClassifyDone
+lwz r4, 0(r3)
+; CoinChameleon / CoinTransparency share this native owner class.
+; Constructor 0213D9A0/0213D9A8, resource selection 0213DC14/0213DC68.
+; Recognize hidden coins before the generic body-sensor enemy heuristic.
+lis r5, 0x1003
+ori r5, r5, 0xE45C
+cmpw r4, r5
+beq smClassifyCoin
+lis r5, 0x1003
+ori r5, r5, 0x2214
+cmpw r4, r5
+bne smClassifyBody
+li r0, 0
+stw r0, 116(r12)
+lbz r4, 0x109(r3) ; native interaction-disabled flag, also checked by xtUpdate
+cmpwi r4, 0
+bne smClassifyDone
+li r0, 2
+stw r0, 116(r12)
+b smClassifyDone
+smClassifyBody:
 lwz r3, 0x4C(r3)
 cmpwi r3, 0
 beq smClassifyDone
@@ -9044,6 +9183,10 @@ addi r4, r4, -1
 cmpwi r4, 0
 bne smClassifyLoop
 smClassifyDone:
+blr
+smClassifyCoin:
+li r0, 3
+stw r0, 116(r12)
 blr
 smClassifyEnemy:
 li r0, 1
@@ -9080,6 +9223,8 @@ smHit:
 .int 0x00000000
 .int 0x00000000
 .int 0x00000000
+.int 0 ; nearest mesh kind
+.int 0 ; nearest mesh distance squared
 smEye:
 .int 0
 .int 0
@@ -9087,3 +9232,390 @@ smEye:
 .int 0
 .int 0
 .int 0
+
+; Menu stick navigation: one cardinal step per deflection, rearm at centre.
+; Runs before native analog/button processing, for gamepad and VR alike.
+mnFilterSticks:
+stwu r1, -0x10(r1)
+mflr r0
+stw r0, 0x14(r1)
+lis r12, mnInput@ha
+addi r12, r12, mnInput@l
+lwz r0, 0(r12)
+cmpwi r0, 0
+beq mnFilterMenu
+li r0, 0
+stw r0, 4(r12)
+stw r0, 8(r12)
+stw r0, 12(r12)
+b mnFilterDone
+mnFilterMenu:
+lwz r0, 12(r12)
+cmpwi r0, 0
+bne mnFilterReady
+; Entering a menu with the stick held must not move its initial selection.
+li r0, 1
+stw r0, 4(r12)
+stw r0, 8(r12)
+stw r0, 12(r12)
+mnFilterReady:
+addi r3, r28, 12
+addi r4, r12, 4
+bl mnFilterOne
+addi r3, r28, 20
+addi r4, r12, 8
+bl mnFilterOne
+mnFilterDone:
+lwz r0, 0x14(r1)
+mtlr r0
+addi r1, r1, 0x10
+blr
+mnFilterOne:
+lfs f1, 0(r3)
+lfs f2, 4(r3)
+fmuls f3, f1, f1
+fmuls f4, f2, f2
+lfs f0, 20(r12) ; centre threshold squared: 0.25^2
+fcmpu cr0, f3, f0
+bgt mnStickOutside
+fcmpu cr0, f4, f0
+bgt mnStickOutside
+li r0, 0
+stw r0, 0(r4)
+b mnStickZero
+mnStickOutside:
+lwz r0, 0(r4)
+cmpwi r0, 0
+bne mnStickZero
+fcmpu cr0, f3, f4
+blt mnStickVertical
+lfs f0, 24(r12) ; engage threshold squared: 0.55^2
+fcmpu cr0, f3, f0
+blt mnStickZero
+lfs f2, 16(r12)
+fcmpu cr0, f1, f2
+lfs f1, 28(r12)
+bge mnStickEmit
+fneg f1, f1
+b mnStickEmit
+mnStickVertical:
+lfs f0, 24(r12)
+fcmpu cr0, f4, f0
+blt mnStickZero
+lfs f1, 16(r12)
+fcmpu cr0, f2, f1
+lfs f2, 28(r12)
+bge mnStickEmit
+fneg f2, f2
+mnStickEmit:
+li r0, 1
+stw r0, 0(r4)
+stfs f1, 0(r3)
+stfs f2, 4(r3)
+blr
+mnStickZero:
+lfs f0, 16(r12)
+stfs f0, 0(r3)
+stfs f0, 4(r3)
+blr
+mnInput:
+.int 1 ; most recently completed view: world until proven menu
+.int 0 ; left stick latch
+.int 0 ; right stick latch
+.int 0 ; was menu
+.int 0 ; zero
+.int 0x3D800000 ; 0.0625
+.int 0x3E9AE148 ; 0.3025
+.int 0x3F800000 ; 1.0
+
+; Preview fallback: one metre in the default diorama/first-person scale.
+gpPoint:
+.int 0
+.int 0
+.int 0
+.int 0x44BB8000 ; 1500
+.int 0x43160000 ; 150
+
+
+[CaptainToad_Headlamp_V16]
+moduleMatches = 0x1B377483
+.origin = codecave
+
+; The spotlight layout and native hook are verified for this executable revision.
+; Share only the completed player view with the main VR patch group.
+; Keep native lamp position, range, brightness, activation and wall collision.
+hlApplyDirection:
+li r6, 0
+lis r11, hlPose@ha
+addi r11, r11, hlPose@l
+lwz r0, 0(r11)
+cmpwi r0, 1
+bne hlApplyDone
+lwz r0, 8(r11)
+cmpw r0, r4
+bne hlApplyDone
+lis r12, rrEnabled@ha
+lwz r0, rrEnabled@l(r12)
+cmpwi r0, 0
+beq hlApplyDone
+lis r12, mnInput@ha
+lwz r0, mnInput@l(r12)
+cmpwi r0, 1
+bne hlApplyDone
+lis r12, tfEyeAnchor@ha
+addi r12, r12, tfEyeAnchor@l
+; +12 describes only the last camera getter, not the completed player view.
+; Auxiliary views clear it. Use the stamped player/model identity and age.
+lwz r0, 20(r12)
+lwz r5, 12(r11)
+cmpw r0, r5
+bne hlApplyDone
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne hlApplyDone
+lwz r0, 8(r12)
+lwz r5, 4(r11)
+subf r5, r5, r0
+cmplwi r5, 1
+bgt hlApplyDone
+lwz r0, 16(r11)
+stw r0, 0(r3)
+lwz r0, 20(r11)
+stw r0, 4(r3)
+lwz r0, 24(r11)
+stw r0, 8(r3)
+li r6, 1
+hlApplyDone:
+blr
+hlCaptureView:
+; Called once per completed stereo view (eye 0). r9 is the final view matrix.
+; -row 2 is world-space forward, including head yaw/pitch and rig rotation.
+; Cache only a validated player view. Auxiliary cameras must not erase that
+; view before the native model update; the epoch check expires missing views.
+; The later light hook never dereferences a saved game object.
+lis r11, hlPose@ha
+addi r11, r11, hlPose@l
+lis r12, xtData@ha
+addi r12, r12, xtData@l
+lwz r0, 0x90(r12)
+cmpwi r0, 1
+bne hlCaptureInvalidate
+lis r8, tfEyeAnchor@ha
+addi r8, r8, tfEyeAnchor@l
+lwz r0, 12(r8)
+cmpwi r0, 1
+bne hlCaptureDone
+; A new validated player view replaces the old identity, even if its model
+; is unavailable during a scene or character transition.
+li r0, 0
+stw r0, 0(r11)
+lwz r7, 20(r8)
+; tfEyeAnchor only publishes a validated native primary player.
+cmpwi r7, 0
+beq hlCaptureDone
+stw r7, 12(r11)
+lwz r7, 0xF4(r7)
+lis r8, 0x1000
+cmplw r7, r8
+blt hlCaptureDone
+lis r8, 0x5000
+cmplw r7, r8
+bge hlCaptureDone
+andi. r0, r7, 3
+bne hlCaptureDone
+; Same active-model selection used by native HeadLight on/off (0224D3C4).
+lwz r6, 0x18(r7)
+cmplwi r6, 8
+bge hlCaptureDone
+lwz r7, 0x14(r7)
+lis r8, 0x1000
+cmplw r7, r8
+blt hlCaptureDone
+lis r8, 0x5000
+cmplw r7, r8
+bge hlCaptureDone
+andi. r0, r7, 3
+bne hlCaptureDone
+mulli r6, r6, 4
+add r7, r7, r6
+lwz r7, 0(r7)
+cmpwi r7, 0
+beq hlCaptureDone
+stw r7, 8(r11)
+lwz r0, 8(r12)
+stw r0, 4(r11)
+lfs f0, 32(r9)
+fneg f0, f0
+stfs f0, 16(r11)
+lfs f0, 36(r9)
+fneg f0, f0
+stfs f0, 20(r11)
+lfs f0, 40(r9)
+fneg f0, f0
+stfs f0, 24(r11)
+li r0, 1
+stw r0, 0(r11)
+b hlCaptureSpot
+hlCaptureDone:
+blr
+hlCaptureInvalidate:
+li r0, 0
+stw r0, 0(r11)
+blr
+hlPose:
+.int 0 ; valid
+.int 0 ; render epoch
+.int 0 ; active model
+.int 0 ; primary player
+.int 0 ; forward x
+.int 0 ; forward y
+.int 0 ; forward z
+
+; Headlamp direction uses the current player view at the native spotlight update.
+; Capture identity only while a fresh validated primary player view is live.
+hlCaptureSpot:
+stwu r1, -0x10(r1)
+stw r5, 8(r1)
+lis r12, hlSpot@ha
+addi r12, r12, hlSpot@l
+li r0, 0
+stw r0, 0(r12)
+lwz r7, 8(r11)
+li r6, 0
+hlSpotOwner:
+lis r5, 0x1000
+cmplw r7, r5
+blt hlSpotNextOwner
+lis r5, 0x5000
+cmplw r7, r5
+bge hlSpotNextOwner
+andi. r0, r7, 3
+bne hlSpotNextOwner
+lwz r8, 0x6C(r7)
+lis r5, 0x1000
+cmplw r8, r5
+blt hlSpotNextOwner
+lis r5, 0x5000
+cmplw r8, r5
+bge hlSpotNextOwner
+andi. r0, r8, 3
+bne hlSpotNextOwner
+lwz r0, 0x18(r8)
+cmpw r0, r7
+bne hlSpotNextOwner
+lwz r0, 0(r8)
+cmpwi r0, 1
+bne hlSpotNextOwner
+lwz r8, 8(r8)
+lis r5, 0x1000
+cmplw r8, r5
+blt hlSpotNextOwner
+lis r5, 0x5000
+cmplw r8, r5
+bge hlSpotNextOwner
+andi. r0, r8, 3
+bne hlSpotNextOwner
+lwz r8, 0(r8)
+lis r5, 0x1000
+cmplw r8, r5
+blt hlSpotNextOwner
+lis r5, 0x5000
+cmplw r8, r5
+bge hlSpotNextOwner
+andi. r0, r8, 3
+bne hlSpotNextOwner
+; Exact native spotlight class and authored HeadLight rotation (-81,0,0).
+lwz r0, 0(r8)
+lis r5, 0x100A
+addi r5, r5, 0x685C
+cmpw r0, r5
+bne hlSpotNextOwner
+lwz r0, 0x38(r8)
+lis r5, 0xC2A2
+cmpw r0, r5
+bne hlSpotNextOwner
+lwz r0, 0x3C(r8)
+cmpwi r0, 0
+bne hlSpotNextOwner
+lwz r0, 0x40(r8)
+cmpwi r0, 0
+bne hlSpotNextOwner
+stw r8, 0(r12)
+b hlSpotCaptured
+hlSpotNextOwner:
+cmpwi r6, 1
+beq hlSpotCaptured
+li r6, 1
+lwz r7, 12(r11)
+b hlSpotOwner
+hlSpotCaptured:
+lwz r5, 8(r1)
+addi r1, r1, 0x10
+blr
+
+; After native quaternion-to-Z extraction, before collision and light submit.
+; The native path negates this vector for BOTH collision and final spotlight.
+; Do not mutate the skeleton, offsets, brightness, range or lamp on/off state.
+0x023AE26C = bla hlSpotDirection
+hlSpotDirection:
+stwu r1, -0x60(r1)
+stw r0, 8(r1)
+mflr r0
+stw r0, 0x64(r1)
+.int 0x7C000026 ; mfcr r0
+stw r0, 12(r1)
+stw r3, 16(r1)
+stw r4, 20(r1)
+stw r5, 24(r1)
+stw r6, 28(r1)
+stw r11, 32(r1)
+stw r12, 36(r1)
+.int 0xD8010028 ; stfd f0, 40(r1)
+lis r11, hlSpot@ha
+lwz r0, hlSpot@l(r11)
+cmpw r0, r31
+bne hlSpotReturn
+addi r3, r1, 0x78
+lis r11, hlPose@ha
+addi r11, r11, hlPose@l
+lwz r4, 8(r11)
+bl hlApplyDirection
+cmpwi r6, 1
+bne hlSpotReturn
+lfs f0, 0x78(r1)
+fneg f0, f0
+stfs f0, 0x78(r1)
+lfs f0, 0x7C(r1)
+fneg f0, f0
+stfs f0, 0x7C(r1)
+lfs f0, 0x80(r1)
+fneg f0, f0
+stfs f0, 0x80(r1)
+hlSpotReturn:
+.int 0xC8010028 ; lfd f0, 40(r1)
+lwz r3, 16(r1)
+lwz r4, 20(r1)
+lwz r5, 24(r1)
+lwz r6, 28(r1)
+lwz r11, 32(r1)
+lwz r12, 36(r1)
+lwz r0, 12(r1)
+.int 0x7C0FF120 ; mtcrf 255, r0
+lwz r0, 0x64(r1)
+mtlr r0
+lwz r0, 8(r1)
+addi r1, r1, 0x60
+lis r11, 0x1008
+blr
+hlSpot:
+.int 0 ; current player spotlight identity, never dereferenced by the update hook
+
+[CaptainToad_Headlamp_Passthrough]
+moduleMatches = 0x9E0461E7, 0x0576A725
+.origin = codecave
+
+; Keep native lighting where this spotlight layout has not been verified.
+hlCaptureView:
+blr

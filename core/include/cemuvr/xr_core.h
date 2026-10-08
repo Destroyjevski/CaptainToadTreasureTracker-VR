@@ -262,8 +262,9 @@ public:
     // kopierkompatibles Format zur Swapchain haben.
     SubmitResult submitEye(CemuVR_Eye eye, ID3D11Texture2D* src);
     bool submitHud(ID3D11Texture2D* src);
-    bool setTouchMarker(const std::array<XrVector3f,2>& points,bool aim=false,bool firstPerson=false,bool stun=false);
+    bool setTouchMarker(const std::array<XrVector3f,2>& points,bool aim=false,bool firstPerson=false,bool stun=false,bool preview=false,bool coin=false);
     // Explicit metadata for the pair just copied; bypasses inferred history offset.
+    bool setTouchPreview(const std::array<XrVector3f,2>* surfacePoints=nullptr);
     bool stampRenderedPair(const CemuVR_FrameContext& rendered);
 
     // --- Posen und Projektion -------------------------------------------
@@ -426,8 +427,12 @@ private:
     EyeChain m_touchChain{};
     EyeChain m_aimChain{};
     EyeChain m_stunChain{};
+    EyeChain m_coinChain{};
+    EyeChain m_previewChain{};
     bool m_aimMarker{};
     bool m_stunMarker{};
+    bool m_coinMarker{};
+    bool m_previewMarker{};
     bool m_markerFirstPerson{};
     bool m_touchReady{};
     std::array<XrVector3f,2> m_touchPoints{};

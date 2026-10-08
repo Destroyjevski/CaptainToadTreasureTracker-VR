@@ -21,3 +21,10 @@ in the documented setup but is not redistributed here.
 Anakins contributed the SteamVR UNORM/sRGB compatibility and HUD import fix
 through SuperMario3DWorld-VR PR #2 under this project's MIT license.
 See CREDITS.md for attribution and the upstream contribution link.
+
+The launcher-side marker importer (tools/marker-import/MarkerImporter.cs)
+is GPL-3.0, with GX2 tiled-address mapping adapted from AboodXD's BFLIM
+Extractor. Complete source is included in both packages. It is not linked
+into the VR DLL. See licenses/Marker-Importer-NOTICE.txt and
+licenses/Marker-Importer-GPL-3.0.txt. It reads game files locally;
+no game graphics or code are distributed with it.

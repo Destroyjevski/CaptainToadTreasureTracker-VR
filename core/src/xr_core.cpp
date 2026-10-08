@@ -2,6 +2,7 @@
 #include "cemuvr/xr_core.h"
 #include "cemuvr/bildlage.h"
 #include "cemuvr/diag.h"
+#include "cemuvr/touch_preview.h"
 
 #include <dxgi1_2.h>
 #include <cmath>
@@ -579,6 +580,10 @@ void XrCore::detach() {
     m_aimChain={};m_aimMarker=false;m_markerFirstPerson=false;
     if(m_stunChain.handle)xrDestroySwapchain(m_stunChain.handle);
     m_stunChain={};m_stunMarker=false;
+    if(m_coinChain.handle)xrDestroySwapchain(m_coinChain.handle);
+    m_coinChain={};m_coinMarker=false;
+    if(m_previewChain.handle)xrDestroySwapchain(m_previewChain.handle);
+    m_previewChain={};m_previewMarker=false;
     if(m_hudChain.handle)xrDestroySwapchain(m_hudChain.handle);
     m_hudChain={};m_hudAnchorSet=false;m_hudReady=false;
     // Vor den Raeumen: die Handraeume gehoeren zur Sitzung und muessen
@@ -1162,7 +1167,7 @@ void XrCore::endFrame() {
     // Each marker uses the pose of its rendered eye, not the next head pose.
     // The guest supplies the nearest surface point when its query has a hit.
     std::array<XrCompositionLayerQuad,2> touchQuads{};
-    const auto& markerChain=m_aimMarker?m_aimChain:(m_stunMarker?m_stunChain:m_touchChain);
+    const auto& markerChain=m_previewMarker?m_previewChain:(m_aimMarker?m_aimChain:(m_coinMarker?m_coinChain:(m_stunMarker?m_stunChain:m_touchChain)));
     if(m_touchReady && markerChain.hasContent && proj.viewCount==2) {
         // One shared world point around the centre of the eye pair gives
         // correct stereo convergence. Preserve the supplied depth for both
@@ -1187,7 +1192,7 @@ void XrCore::endFrame() {
         // A shared, time-based size pulse: no movement in depth or aim direction.
         const float phase=float(GetTickCount64()%1400)/1400.f;
         const float pulse=1.f+0.08f*std::sin(phase*6.28318530718f);
-        const float angularSize=m_aimMarker?(m_markerFirstPerson?0.11f:0.045f):0.065f;
+        const float angularSize=m_previewMarker?touchPreviewAngularSize:m_aimMarker?(m_markerFirstPerson?0.11f:0.045f):0.065f;
         // Constant apparent size: the quad grows with the distance it sits at.
         const float size=(std::max)(0.008f,(std::min)(4.0f,markerDistance*angularSize))*pulse;
         for(int e=0;e<2;++e) {
@@ -1491,17 +1496,27 @@ bool XrCore::stampRenderedPair(const CemuVR_FrameContext& rendered) {
     m_explicitRenderedPair=true;return true;
 }
 
-// User-supplied transparent PNG, embedded unchanged as a resource in this DLL.
+// The launcher supplies a verified local cache generated from the user's game.
+// These files are never embedded or packaged. Missing coin artwork uses the
+// procedural neutral ring; the other markers retain their embedded fallback.
 static constexpr uint32_t touchIconSize=256;
 static bool loadMarkerIcon(std::vector<uint8_t>& pixels, int resourceId) {
     HMODULE module=nullptr;
     if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         reinterpret_cast<LPCWSTR>(&loadMarkerIcon),&module))return false;
+    const wchar_t* localName=resourceId==102?L"aim-radish.png":
+        (resourceId==103?L"stun-hammer.png":(resourceId==104?L"touch-coin.png":L"touch-switch.png"));
+    wchar_t cachePath[32768]{};
+    const DWORD pathSize=GetEnvironmentVariableW(L"CEMUVR_MARKER_ICON_DIR",cachePath,DWORD(std::size(cachePath)));
+    std::wstring localPath;
+    if(pathSize && pathSize<std::size(cachePath)) {
+        localPath.assign(cachePath,pathSize);
+        if(localPath.back()!=L'\\' && localPath.back()!=L'/')localPath+=L'\\';
+        localPath+=localName;
+    }
     const auto resource=FindResourceW(module,MAKEINTRESOURCEW(resourceId),MAKEINTRESOURCEW(10));
-    if(!resource)return false;
-    const DWORD size=SizeofResource(module,resource);
-    const auto data=LockResource(LoadResource(module,resource));
-    if(!size || !data)return false;
+    const DWORD size=resource?SizeofResource(module,resource):0;
+    const auto data=resource?LockResource(LoadResource(module,resource)):nullptr;
     const HRESULT apartment=CoInitializeEx(nullptr,COINIT_MULTITHREADED);
     if(FAILED(apartment) && apartment!=RPC_E_CHANGED_MODE)return false;
     bool success=false;
@@ -1513,22 +1528,40 @@ static bool loadMarkerIcon(std::vector<uint8_t>& pixels, int resourceId) {
         ComPtr<IWICBitmapFrameDecode> frame;
         ComPtr<IWICFormatConverter> converter;
         ComPtr<IWICBitmapScaler> scaler;
-        // Scale in premultiplied RGBA so transparent-edge RGB cannot make dark fringes.
-        if(SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory))) &&
-           SUCCEEDED(factory->CreateStream(&stream)) &&
-           SUCCEEDED(stream->InitializeFromMemory((BYTE*)data,size)) &&
-           SUCCEEDED(factory->CreateDecoderFromStream(stream.Get(),nullptr,WICDecodeMetadataCacheOnLoad,&decoder)) &&
-           SUCCEEDED(decoder->GetFrame(0,&frame)) &&
-           SUCCEEDED(factory->CreateFormatConverter(&converter)) &&
-           SUCCEEDED(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppPRGBA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom)) &&
-           SUCCEEDED(factory->CreateBitmapScaler(&scaler)) &&
-           SUCCEEDED(scaler->Initialize(converter.Get(),touchIconSize,touchIconSize,WICBitmapInterpolationModeFant))) {
-            pixels.resize(touchIconSize*touchIconSize*4);
-            success=SUCCEEDED(scaler->CopyPixels(nullptr,touchIconSize*4,UINT(pixels.size()),pixels.data()));
-            // Submit straight alpha. The OpenXR compositor applies the appropriate blend.
-            if(success)for(size_t i=0;i<pixels.size();i+=4) {
-                const unsigned a=pixels[i+3];
-                for(int c=0;c<3;++c)pixels[i+c]=a?uint8_t((std::min)(255u,(unsigned(pixels[i+c])*255+a/2)/a)):0;
+        ComPtr<IWICFormatConverter> rgbaConverter;
+        if(SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory)))) {
+            // A missing or malformed local icon must not remove the interaction marker.
+            for(int source=0;source<2 && !success;++source) {
+                decoder.Reset();frame.Reset();converter.Reset();scaler.Reset();rgbaConverter.Reset();stream.Reset();
+                HRESULT decoded=E_FAIL;
+                if(source==0 && !localPath.empty()) {
+                    decoded=factory->CreateDecoderFromFilename(localPath.c_str(),nullptr,GENERIC_READ,
+                        WICDecodeMetadataCacheOnLoad,&decoder);
+                } else if(source==1 && data && size &&
+                    SUCCEEDED(factory->CreateStream(&stream)) &&
+                    SUCCEEDED(stream->InitializeFromMemory((BYTE*)data,size))) {
+                    decoded=factory->CreateDecoderFromStream(stream.Get(),nullptr,WICDecodeMetadataCacheOnLoad,&decoder);
+                }
+                UINT width=0,height=0;
+                if(FAILED(decoded) || FAILED(decoder->GetFrame(0,&frame)) ||
+                    FAILED(frame->GetSize(&width,&height)) || !width || !height || width>4096 || height>4096)continue;
+                // Scale in premultiplied RGBA so transparent-edge RGB cannot make dark fringes.
+                if(SUCCEEDED(factory->CreateFormatConverter(&converter)) &&
+                   SUCCEEDED(converter->Initialize(frame.Get(),GUID_WICPixelFormat32bppPRGBA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom)) &&
+                   SUCCEEDED(factory->CreateBitmapScaler(&scaler)) &&
+                   SUCCEEDED(scaler->Initialize(converter.Get(),touchIconSize,touchIconSize,WICBitmapInterpolationModeFant)) &&
+                   SUCCEEDED(factory->CreateFormatConverter(&rgbaConverter)) &&
+                   // WIC scaling can select PBGRA internally; explicitly restore RGBA byte order.
+                   SUCCEEDED(rgbaConverter->Initialize(scaler.Get(),GUID_WICPixelFormat32bppPRGBA,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom))) {
+                    pixels.resize(touchIconSize*touchIconSize*4);
+                    success=SUCCEEDED(rgbaConverter->CopyPixels(nullptr,touchIconSize*4,UINT(pixels.size()),pixels.data()));
+                    // Submit straight alpha. The OpenXR compositor applies the appropriate blend.
+                    if(success)for(size_t i=0;i<pixels.size();i+=4) {
+                        const unsigned a=pixels[i+3];
+                        for(int c=0;c<3;++c)pixels[i+c]=a?uint8_t((std::min)(255u,(unsigned(pixels[i+c])*255+a/2)/a)):0;
+                    }
+                    if(success && source==0)CVR_INFO("touch.marker","icon_source=local_game_cache resource=%d",resourceId);
+                }
             }
         }
     }
@@ -1536,10 +1569,43 @@ static bool loadMarkerIcon(std::vector<uint8_t>& pixels, int resourceId) {
     return success;
 }
 
-bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool firstPerson,bool stun) {
+// The grip cursor must exist before any native touch event or hit packet.
+// Use the tracked hand for its direction, and the rendered eyes for its space.
+bool XrCore::setTouchPreview(const std::array<XrVector3f,2>* surfacePoints) {
+    const auto& hand=m_hands[1];
+    if(!m_frameActive || !hand.valid || !(hand.buttons&kPadSqueeze) ||
+       !m_eyeStamp[0].valid || !m_eyeStamp[1].valid)return false;
+    // A validated guest packet already contains the per-eye hit position,
+    // scaled for the active camera and stamped to this rendered pair. Keep
+    // it exactly as the action marker does; projecting only its length along
+    // a newer hand direction loses the first-person camera/eye offsets.
+    if(surfacePoints)return setTouchMarker(*surfacePoints,false,false,false,true);
+    const auto rotate=[](XrQuaternionf q,XrVector3f v) {
+        const XrVector3f t{2*(q.y*v.z-q.z*v.y),2*(q.z*v.x-q.x*v.z),2*(q.x*v.y-q.y*v.x)};
+        return XrVector3f{v.x+q.w*t.x+q.y*t.z-q.z*t.y,
+            v.y+q.w*t.y+q.z*t.x-q.x*t.z,v.z+q.w*t.z+q.x*t.y-q.y*t.x};
+    };
+    constexpr float distance=1.f; // No guest point: visible free-aim fallback.
+    const auto dir=rotate(hand.pose.orientation,{0,0,-1});
+    const auto& left=m_eyeStamp[0].pose;const auto& right=m_eyeStamp[1].pose;
+    const XrVector3f target{(left.position.x+right.position.x)*.5f+dir.x*distance,
+        (left.position.y+right.position.y)*.5f+dir.y*distance,
+        (left.position.z+right.position.z)*.5f+dir.z*distance};
+    std::array<XrVector3f,2> points{};
+    for(int eye=0;eye<2;++eye) {
+        const auto& pose=m_eyeStamp[eye].pose;const auto q=pose.orientation;
+        points[eye]=rotate({-q.x,-q.y,-q.z,q.w},
+            {target.x-pose.position.x,target.y-pose.position.y,target.z-pose.position.z});
+    }
+    return setTouchMarker(points,false,false,false,true);
+}
+
+bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool firstPerson,bool stun,bool preview,bool coin) {
     if(!m_frameActive)return false;
-    stun=stun && !aim;
-    auto& chain=aim?m_aimChain:(stun?m_stunChain:m_touchChain);
+    preview=preview && !aim;
+    coin=coin && !aim && !preview;
+    stun=stun && !aim && !preview && !coin;
+    auto& chain=preview?m_previewChain:(aim?m_aimChain:(coin?m_coinChain:(stun?m_stunChain:m_touchChain)));
     if(!chain.handle) {
         XrSwapchainCreateInfo ci{XR_TYPE_SWAPCHAIN_CREATE_INFO};
         ci.usageFlags=XR_SWAPCHAIN_USAGE_SAMPLED_BIT|XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT|XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
@@ -1561,8 +1627,10 @@ bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool
         const bool bgra=m_format==DXGI_FORMAT_B8G8R8A8_UNORM || m_format==DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
         if(!bgra && m_format!=DXGI_FORMAT_R8G8B8A8_UNORM && m_format!=DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)return false;
         std::vector<uint8_t> pixels;
-        if(!loadMarkerIcon(pixels,aim?102:(stun?103:101))) {
-            CVR_ERR("touch.marker","icon_decode_failed=1 aim=%d",int(aim));return false;
+        if(preview)pixels=makeTouchPreview(touchIconSize);
+        else if(!loadMarkerIcon(pixels,aim?102:(coin?104:(stun?103:101)))) {
+            if(coin)pixels=makeTouchPreview(touchIconSize);
+            else {CVR_ERR("touch.marker","icon_decode_failed=1 aim=%d",int(aim));return false;}
         }
         if(bgra)for(size_t i=0;i<pixels.size();i+=4)std::swap(pixels[i],pixels[i+2]);
         XrSwapchainImageAcquireInfo ai{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
@@ -1577,10 +1645,10 @@ bool XrCore::setTouchMarker(const std::array<XrVector3f,2>& points,bool aim,bool
             xrDestroySwapchain(chain.handle);chain={};return false;
         }
         chain.acquiredIndex=UINT32_MAX;chain.hasContent=true;
-        CVR_INFO("touch.marker","icon_ready=1 aim=%d texture=256x256",int(aim));
+        CVR_INFO("touch.marker","icon_ready=1 aim=%d stun=%d preview=%d coin=%d texture=256x256",int(aim),int(stun),int(preview),int(coin));
     }
     m_touchPoints=points;m_touchReady=true;m_aimMarker=aim;m_markerFirstPerson=firstPerson;
-    m_stunMarker=stun;
+    m_stunMarker=stun;m_previewMarker=preview;m_coinMarker=coin;
     return true;
 }
 

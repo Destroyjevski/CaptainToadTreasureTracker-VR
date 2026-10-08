@@ -6,8 +6,10 @@
 
       * finds Cemu.exe (asked once, remembered in cemu-path.txt beside this file),
       * uses the Cemu data folder that Cemu itself would use - the portable
-        folder if one exists next to Cemu.exe, otherwise %APPDATA%\Cemu, so you
-        never have to create a portable installation,
+        folder if one exists next to Cemu.exe, else the Cemu folder itself
+        when settings.xml lies beside Cemu.exe (Cemu 2.x still reads it there
+        for folders set up before Cemu 2.0-89), otherwise %APPDATA%\Cemu -
+        so you never have to create a portable installation,
       * copies the graphic packs into that folder's graphicPacks directory,
       * backs up settings.xml, enables the packs, selects Vulkan with
         asynchronous shader compilation and GX2DrawDone synchronisation and
@@ -59,7 +61,7 @@ function IsOurEntry($entry) {
 }
 
 Say ''
-Say ('Captain Toad: Treasure Tracker VR - Alpha 1.11 - ' + $modeName)
+Say ('Captain Toad: Treasure Tracker VR - Alpha 1.2 - ' + $modeName)
 Say '-----------------------------------------------'
 
 # --- the package itself -----------------------------------------------------
@@ -110,8 +112,13 @@ if (Get-Process -Name 'Cemu' -ErrorAction SilentlyContinue) {
 }
 
 # --- the folder Cemu keeps its data in --------------------------------------
+# Same order as Cemu itself (2.x, CemuApp::DeterminePaths): a portable folder
+# beside Cemu.exe, then settings.xml beside Cemu.exe (folders set up before
+# Cemu 2.0-89 and updated since), then %APPDATA%\Cemu.
 $portable = Join-Path $cemuDir 'portable'
-if (Test-Path $portable) { $data = $portable } else { $data = Join-Path $env:APPDATA 'Cemu' }
+if (Test-Path -LiteralPath $portable -PathType Container) { $data = $portable }
+elseif (Test-Path -LiteralPath (Join-Path $cemuDir 'settings.xml')) { $data = $cemuDir }
+else { $data = Join-Path $env:APPDATA 'Cemu' }
 $settingsFile = Join-Path $data 'settings.xml'
 if (-not (Test-Path $settingsFile)) {
     Fail ('Cemu has no settings here yet: ' + $settingsFile + [Environment]::NewLine +
@@ -119,6 +126,18 @@ if (-not (Test-Path $settingsFile)) {
 }
 Say ('Cemu:     ' + $cemuExe)
 Say ('Settings: ' + $settingsFile)
+if ($data -eq $cemuDir) { Say '          (this Cemu keeps its settings beside Cemu.exe)' }
+
+# Local game-derived icons are generated only on the user's machine.
+# Clear inherited paths so an unrelated session cannot supply stale artwork.
+$env:CEMUVR_MARKER_ICON_DIR = $null
+try {
+    . (Join-Path $root 'tools/marker-import/Prepare-Markers.ps1')
+    $markerCache = Get-ToadMarkerCache -SettingsFile $settingsFile -CemuDir $cemuDir
+    if ($markerCache) { $env:CEMUVR_MARKER_ICON_DIR = $markerCache }
+} catch {
+    Say ('Markers: local import unavailable; using fallback symbols. ' + $_.Exception.Message)
+}
 
 # --- graphic packs ----------------------------------------------------------
 $packRoot = Join-Path $data 'graphicPacks'

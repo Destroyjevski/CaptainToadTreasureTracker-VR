@@ -47,6 +47,10 @@ The same fix has been adapted to Captain Toad's VR layer.
   It may be incorporated through the statically linked OpenXR loader.
 - **Windows Imaging Component** — decodes the three marker images embedded in
   the layer; a Windows system component, not vendored.
+- **Local marker importer** - separate launcher-side tool under GPL-3.0;
+  GX2 texture addressing adapted from AboodXD's BFLIM Extractor, with Exzap
+  credited for swizzling assistance. Complete source and notices are included
+  under `tools/marker-import/` and `licenses/Marker-Importer-NOTICE.txt`.
 - The community resolution graphic pack for the game is used in the
   documented setup. That pack is not redistributed here.
 

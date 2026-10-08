@@ -969,7 +969,7 @@ void touchMarkerSummary() {
         (unsigned long long)t.stale,(unsigned long long)t.flags,(unsigned long long)t.behind,
         (unsigned long long)t.acceptedHand,(unsigned long long)t.acceptedAim);
 }
-bool readTouchMarker(int slot,uint32_t poseSequence,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson,bool& stun) {
+bool readTouchMarker(int slot,uint32_t poseSequence,std::array<XrVector3f,2>& points,bool& aim,bool& firstPerson,bool& stun,bool& preview,bool& coin) {
     ++g_touchMarkerStats.calls;
     static uint8_t* packet=nullptr;
     static uint8_t* previousBase=nullptr;
@@ -1012,12 +1012,14 @@ bool readTouchMarker(int slot,uint32_t poseSequence,std::array<XrVector3f,2>& po
     // a record that exists but belongs to another pair or is malformed.
     if(!raw[0] || !raw[1]){++g_touchMarkerStats.empty;return false;}
     if(!referencePoseSequenceMatches(raw[0],raw[8],poseSequence) || raw[1]!=raw[9]){++g_touchMarkerStats.stale;return false;}
-    if(raw[5]!=raw[13] || raw[5]>1 || raw[6]!=raw[14] || raw[6]>1){++g_touchMarkerStats.flags;return false;}
+    if(raw[5]!=raw[13] || raw[5]>1 || raw[6]!=raw[14] || raw[6]>2){++g_touchMarkerStats.flags;return false;}
     aim=raw[6]==1;
+    preview=raw[6]==2;
     firstPerson=raw[5]==1;
-    // The guest publishes identity 3 only for a fresh enemy-body target.
-    // Ordinary direct touch (2), misses and selected platforms use the hand.
-    stun=!aim && raw[1]==3;
+    // Fresh target identity: 2 platform, 3 enemy, 5 hidden coin.
+    // Cart and neutral preview styles take precedence over the identity.
+    stun=!aim && !preview && raw[1]==3;
+    coin=!aim && !preview && raw[1]==5;
     static const float units=[] {
         const auto s=envStr("CEMUVR_TOAD_WORLD_SIZE","2");
         const float factor=std::strtof(s.c_str(),nullptr);
@@ -1149,8 +1151,11 @@ VkResult presentReferencePair(DeviceData* dd,VkQueue queue,const VkPresentInfoKH
                 (unsigned long long)(stampValid?stamp->context.poseSerial:0),int(submitted));
         if(submitted && !surfaceFrame && hudHeld)g.xr.submitHud(dd->hudInterop.d3dTexture(0));
         if(submitted && !surfaceFrame && stampValid) {
-            std::array<XrVector3f,2> points{};bool aim=false,firstPerson=false,stun=false;
-            if(readTouchMarker(slot,stamp->mailboxSequence,points,aim,firstPerson,stun))g.xr.setTouchMarker(points,aim,firstPerson,stun);
+            std::array<XrVector3f,2> points{};bool aim=false,firstPerson=false,stun=false,preview=false,coin=false;
+            if(readTouchMarker(slot,stamp->mailboxSequence,points,aim,firstPerson,stun,preview,coin)) {
+                if(preview)g.xr.setTouchPreview(&points);
+                else g.xr.setTouchMarker(points,aim,firstPerson,stun,false,coin);
+            } else g.xr.setTouchPreview();
         }
         perf.submit=perfMs()-stage;stage=perfMs();
         perf.surface=g.xr.surfaceActive()?1:0;

@@ -1,0 +1,9 @@
+Local marker importer (tools/marker-import/MarkerImporter.cs)
+Copyright (c) 2026 Destroyjevski
+Licensed under GNU GPL version 3; complete corresponding source is shipped
+in both installation and source packages. Full license: Marker-Importer-GPL-3.0.txt.
+
+GX2 tiled texture addressing is adapted from addrlib in BFLIM Extractor by
+AboodXD (GPL-3.0), with swizzling assistance credited upstream to Exzap.
+The importer is a separate launcher-side tool; it is not linked into the VR DLL.
+No Nintendo game code, models, textures or rendered game icons are included.

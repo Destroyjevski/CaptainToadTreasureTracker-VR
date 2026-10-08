@@ -1,6 +1,6 @@
 # Known issues
 
-**Alpha 1.11** is intended for early testing. A full playthrough has not
+**Alpha 1.2** is intended for early testing. A full playthrough has not
 been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Rendering and performance
@@ -17,19 +17,14 @@ been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Controls
 
-- First-person controller touch and enemy stunning now have a dedicated
-  world-ray adapter, checked offline but awaiting headset gameplay testing.
-  Hand and crosshair surface placement uses the game's collision shapes,
-  which may differ from visible geometry, and still needs headset testing.
-  Without a fresh hit the direct pointer and crosshair use their reference
-  distance; the selected-platform finger is hidden until a matching hit exists.
-  Platform selection and minecart aiming retain their existing controls.
-- Tested interactions include direct touch on lifts and movable platforms in
-  the diorama views, nearby platform selection with Y and the D-pad (gamepad
-  or VR-controller D-pad emulation), and controller aiming and firing in the
-  minecart. Other touch interactions have not been comprehensively tested.
-- In the close diorama, the touch point can sit slightly off the pointed-at
-  object, more so towards the edges of the view.
+- Interaction markers use the game's collision shapes, which can differ from
+  visible geometry. The grip preview and action symbol share the same surface
+  point in first person and both diorama modes.
+- Locally tested interactions include grip preview, enemy stunning, hidden-coin
+  surfaces, lifts/platforms, platform selection with Y and the D-pad, and
+  minecart aiming. Not every interaction in every level has been tested.
+- The minecart marker indicates the initial shot direction, not the curved
+  projectile trajectory. Without a hit, it uses the existing distant aim point.
 - The GamePad's microphone has no equivalent on a VR controller. A pad button
   that Cemu assigns to blowing keeps working from the pad.
 
@@ -40,6 +35,13 @@ setup and the separate gamepad and VR-controller bindings.
 
 - The camera can clip into nearby geometry.
 - Fixed cameras, rides and cinematics may produce awkward framing.
+
+## Locally generated markers
+
+The automatic importer requires an unpacked game installation in Cemu's game
+paths or installed titles. WUA/WUD/WUX containers are not read directly.
+If importing is unavailable, the project-created fallback symbols remain in
+use; hidden-coin targets use the neutral ring. No game assets are downloaded.
 
 ## Compatibility
 

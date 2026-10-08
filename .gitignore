@@ -22,3 +22,12 @@ fps-preset.txt
 settings*.xml
 *.bak
 /Releases/
+
+# Game-derived marker cache, generated locally and never distributed
+**/marker-icons/
+
+# Local game-derived icons are never source assets, even outside the cache
+stun-hammer.png
+aim-radish.png
+touch-switch.png
+touch-coin.png

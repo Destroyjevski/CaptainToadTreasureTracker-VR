@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 import zipfile
 
+from distribution_assets import audit_assets
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip().replace(" ", "-")
 TEXT_ROOT = [
@@ -35,7 +37,7 @@ def source_files() -> dict[str, bytes]:
         ("layer", {".json"}),
         ("licenses", {".txt"}),
         ("docs", {".png"}),
-        ("tools", {".py"}),
+        ("tools", {".py", ".ps1", ".cs"}),
     ]:
         for path in sorted((ROOT / directory).rglob("*")):
             if path.is_file() and path.suffix in suffixes:
@@ -57,6 +59,11 @@ def install_files(dll: Path) -> dict[str, bytes]:
         result[path.relative_to(ROOT).as_posix()] = path.read_bytes()
     for path in sorted((ROOT / "docs").glob("*.png")):
         result[path.relative_to(ROOT).as_posix()] = path.read_bytes()
+    # Source-only importer: compiled by Windows PowerShell on the user's PC.
+    # Generated graphics and the local cache are never package inputs.
+    for name in ("Prepare-Markers.ps1", "MarkerImporter.cs"):
+        path = ROOT / "tools" / "marker-import" / name
+        result[path.relative_to(ROOT).as_posix()] = path.read_bytes()
     result["SHA256.json"] = json.dumps(
         {name: digest(data) for name, data in sorted(result.items())}, indent=2
     ).encode("utf-8") + b"\n"
@@ -64,6 +71,7 @@ def install_files(dll: Path) -> dict[str, bytes]:
 
 
 def audit(name: str, files: dict[str, bytes]) -> None:
+    audit_assets(files)
     forbidden_names = re.compile(r"(?i)(\.exe$|\.rpx$|\.wud$|\.wux$|\.tik$|\.tmd$|gamedata\.bin|save|shadercache|\.pdb$|pre-push-checks\.json$)")
     # Optional local-only denylist: JSON array of strings, never stored in the archive.
     extra_terms = json.loads(os.environ.get("CEMUVR_PRIVACY_TERMS", "[]"))
@@ -80,6 +88,8 @@ def audit(name: str, files: dict[str, bytes]) -> None:
         b"Bearer" + rb" [A-Za-z0-9]+",
     ]) + rb")")
     for path, data in files.items():
+        if "marker-icons" in path.replace("\\", "/").lower().split("/"):
+            raise ValueError(f"Local game-derived marker cache in {name}: {path}")
         if forbidden_names.search(path):
             raise ValueError(f"Forbidden filename in {name}: {path}")
         if any(term.encode(encoding).lower() in data.lower()

@@ -1,6 +1,6 @@
 # Captain Toad: Treasure Tracker VR
 
-**Alpha 1.11** · Windows x64 · Cemu · OpenXR
+**Alpha 1.2** · Windows x64 · Cemu · OpenXR
 
 Stereo rendering and six-degree-of-freedom head tracking for the Wii U
 version of **Captain Toad: Treasure Tracker**. Play with a gamepad or VR
@@ -26,6 +26,23 @@ menus are shown on a screen that stays fixed in the room.
 
 All modes include room-anchored menus and HUD, head tracking, and the VR
 controllers as the GamePad, touch screen included.
+
+## New in Alpha 1.2
+
+- Hold the right grip for a blue touch preview; use the right trigger to
+  activate the target. Previewing alone does not touch anything.
+- Interaction symbols appear for the current target: hammer for enemies,
+  pull-switch for lifts/platforms and coin for hidden-coin surfaces. The
+  turnip aim marker appears only while riding the minecart.
+- Aligns the preview ring and action symbol at the same collision point,
+  including first person, and fixes stale or incorrect target symbols.
+- The first-person headlamp follows your headset's look direction.
+- Menu sticks select one item per deliberate deflection, reducing skipped buttons.
+- Automatically prepares interaction symbols from your own unpacked game.
+  No game graphics are included; the project's own fallback artwork remains available.
+- Detects Cemu installations with settings stored beside Cemu.exe.
+
+All previous features and the Alpha 1.11 long-session hotfix remain included.
 
 ## New in Alpha 1.11
 
@@ -75,7 +92,7 @@ see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
 
-1. Download the **Alpha 1.11 installation ZIP** from [Releases](../../releases).
+1. Download the **Alpha 1.2 installation ZIP** from [Releases](../../releases).
 2. Place its `CaptainToad-VR` folder beside `Cemu.exe`.
 3. Close Cemu and run `Start-VR.cmd`.
 4. Open Captain Toad: Treasure Tracker in Cemu and play with your gamepad or VR controllers.
@@ -143,32 +160,47 @@ gamepad table above. Other controller layouts have not been validated.
 | Left controller held to your head | The right stick acts as the D-pad; a short pulse confirms it |
 | Left Y held + right stick left/right, left controller at your head | Choose a nearby lift or movable platform; releasing Y touches it |
 | Left trigger, left grip, menu button | ZL, L, Plus |
-| Right A, right B, right grip | A, B, R |
+| Right grip held | R; show the blue touch preview; hover over a target to show its action symbol |
+| Right A, right B | A, B |
 
 See [INSTALL.md](INSTALL.md#controls) for the full bindings and separate
 gamepad and VR-controller instructions.
 
+### Locally generated game markers
+
+At startup, the launcher looks for your unpacked Captain Toad installation
+in Cemu's game paths or installed titles. It locally generates a hammer for
+stunning, a turnip for minecart aim, a pull-switch for lifts/platforms and a
+coin for hidden-coin interactions. These pictures come from your game and are
+not included in the mod download. No additional software is needed.
+
+The generated pictures are kept in `%LOCALAPPDATA%/CemuVR/CaptainToad/marker-icons/`.
+They are verified on subsequent starts and rebuilt if damaged. If your game
+is available only as a WUA/WUD/WUX container, or importing is unavailable,
+the mod uses the project-created fallback symbols described below.
+
 ### The touch hand, stun fist and crosshair
 
-Three symbols of this mod stand in for the GamePad's touch screen. They are
-drawn in the room by the VR layer, at the depth of the spot they mark, and
-only while they are in use.
+These project-created symbols are the fallbacks when local game markers are
+unavailable. The VR layer places interaction markers at the reported collision
+surface, with one shared position for both eyes.
 
 | <img src="docs/touch-hand.png" width="128" alt="The touch hand"> | <img src="docs/stun-fist.png" width="128" alt="The stun fist"> | <img src="docs/crosshair.png" width="128" alt="The crosshair"> |
 | --- | --- | --- |
 | **Touch hand:** marks the touch point or the selected lift/platform. | **Stun fist:** marks a recognized enemy target for touch-stunning in every camera mode. It indicates the target, not a confirmed stun. | **Crosshair:** shows the direction of aim in the minecart. |
 
 With a gamepad, hold **Y** and use **D-pad left/right** to choose a nearby
-lift or platform, then release Y to touch it. With VR controllers, point
-the right controller and hold its trigger to touch in either diorama view
-or first person. In first person the hand is visible before pressing the
-trigger so you can aim at enemies for touch-stunning. This new path awaits
-headset testing. This test build places the hand and minecart crosshair at
-the nearest collision point, falling back to their reference distance when
-no hit is available. Collision shapes may differ from visible models.
-The pointer uses a fist when its nearest target is recognized as an enemy,
-in every camera mode. Lifts, platforms and other targets use the pointing hand;
-the minecart keeps its crosshair. The fist indicates the target, not stun success.
+lift or platform, then release Y to touch it. With VR controllers, hold the
+right grip to show the blue touch preview and point at the level. A fresh
+target shows its action symbol: hammer for enemies, pull-switch for lifts
+and platforms, or coin for hidden-coin surfaces. Hold the right trigger to
+activate the touch. The grip preview alone does not activate anything.
+Empty space shows no action symbol. This works in all three camera modes.
+
+Without local game markers, enemies use the fist and lifts/platforms use
+the pointing hand; hidden-coin surfaces keep a neutral ring. The symbol
+identifies the target, not a confirmed result. Collision shapes can differ
+from visible models. The minecart aim marker appears only while riding.
 
 In the minecart, aim with the gamepad's right stick or the right VR
 controller. In first person, hold gamepad Y to aim with the stick.

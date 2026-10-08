@@ -9,9 +9,9 @@
 - For the default 120 FPS preset, use a 120 Hz headset refresh rate.
 - Close Cemu before starting a VR session.
 
-## Install Alpha 1.11
+## Install Alpha 1.2
 
-1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.11-install.zip`.
+1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.2-install.zip`.
 2. Copy its **`CaptainToad-VR`** folder into your Cemu folder, beside `Cemu.exe`.
 3. Open that folder and run **`Start-VR.cmd`**. The game starts in diorama mode.
 4. Launch the game from Cemu's game list.
@@ -81,7 +81,7 @@ have not been validated.
 | Right B | B |
 | Left trigger | ZL |
 | Left grip | L |
-| Right grip | R |
+| Right grip | R; show the blue touch preview while held |
 | Left menu button | Plus |
 | Right controller direction | Aim the touch hand in diorama or first person; aim in the minecart |
 | Right trigger | Touch at the pointer; fire in the minecart |
@@ -105,54 +105,59 @@ its trigger to fire, including in first person.
 ### Camera behaviour with either input device
 
 Head movement controls your viewpoint. In first person, the right stick
-turns freely through 360 degrees and the left stick moves relative to that
-stick-turned view. Hold the touch button (gamepad Y or left VR Y) to use the
+turns freely through 360 degrees and the left stick follows the horizontal
+headset direction combined with stick turning. Hold the touch button (gamepad Y or left VR Y) to use the
 right stick for minecart aiming or Spinwheel control instead.
+
+The headlamp follows your headset's horizontal and vertical look direction
+in first person. No extra button is needed; other views keep native lighting.
+In menus, return the stick to centre before selecting the next item.
+
+### Locally generated game markers
+
+At startup, the launcher looks for your unpacked Captain Toad installation
+in Cemu's game paths or installed titles. It locally generates a hammer for
+stunning, a turnip for minecart aim, a pull-switch for lifts/platforms and a
+coin for hidden-coin interactions. These pictures come from your game and are
+not included in the mod download. No additional software is needed.
+
+The generated pictures are kept in `%LOCALAPPDATA%/CemuVR/CaptainToad/marker-icons/`.
+They are verified on subsequent starts and rebuilt if damaged. If your game
+is available only as a WUA/WUD/WUX container, or importing is unavailable,
+the mod uses the project-created fallback symbols described below.
 
 ### The touch hand and the crosshair
 
-On the Wii U the GamePad screen shows the same view as the TV, and a touch on
-it is a touch on the level. A headset has no such screen, so this mod gives
-the touch two symbols of its own, drawn by the VR layer as flat images in the
-room. Both sit at the depth of the spot they mark, are placed at one common
-point for both eyes, pulse slightly, and appear only while they are in use.
+The project-created touch hand, stun fist and crosshair remain available as
+fallbacks when the local game markers cannot be imported. They are embedded
+in the layer from `core/assets/`; the copies under `docs/` illustrate these
+fallbacks, not extracted game graphics.
 
-**The touch hand** (`docs/touch-hand.png`) is the touch itself. In the
-diorama, point the right controller at the level and hold the trigger: the
-hand appears where the controller points, the game receives a touch at that
-spot for as long as the trigger is held, and the touch ends when you let go.
-It moves lifts and movable platforms. The game picks the touched object
-along a ray. This test build places the hand at the nearest reported collision
-point, with a reference-distance fallback when no hit is available.
-From the pad, hold Y and switch between the nearby
-lifts and movable platforms with D-pad left or right; the hand marks the
-chosen one, and releasing Y touches it. The VR controllers do the same with
-the D-pad emulation: hold the left controller to your head and Y, and push
-the right stick left or right. In first person direct pointing uses the
-VR camera position and right-controller direction for the game's touch
-collision query. Aim with the visible hand, then hold the right trigger.
-This first-person path still needs an in-headset gameplay test.
+With VR controllers, hold the **right grip** to see the blue touch preview
+and move the right controller to point at the level. When the ray finds a
+fresh interaction target, its symbol appears: a hammer for enemy stunning,
+a pull-switch for lifts/platforms, or a coin for hidden-coin surfaces. Hold
+the **right trigger** to activate the touch. Release it to end the touch.
+Grip alone only previews the target. Empty space has no action symbol.
+Without imported markers, the fist, pointing hand and neutral ring serve
+these respective roles. Symbols identify targets, not confirmed success.
 
-In this test build, the pointer uses a fist only when its nearest target is
-recognized as an enemy, in every camera mode. Lifts, platforms and other
-targets use the pointing hand. The symbol does not confirm stun success.
-The minecart retains its crosshair.
-The selected-platform hand now uses a collision point on that platform instead
-of floating above its origin. It is hidden when no matching surface is found
-or closer geometry blocks it. This placement awaits headset testing.
+This preview and activation work in all three camera modes. The marker and
+blue ring use the same collision point for both eyes, including first person.
+The game's collision shapes can differ from its visible models.
 
-**The crosshair** (`docs/crosshair.png`) is the minecart's aim. It shows
-the nearest reported collision point along the shot's initial direction.
-Without a hit it uses the existing distant aim point. It does not predict
-the projectile's curved trajectory. Collision shapes may differ from visible
-models; this surface placement still needs headset testing.
-Aim with the right stick as the game intends, or point the right controller:
-the crosshair follows it, and the trigger fires (Y on the pad, or ZR). In
-first person hold Y to aim with the right stick.
+From the gamepad, hold **Y** and choose a nearby lift or platform with
+**D-pad left/right**; releasing Y touches it. With VR controllers, use the
+same selection via the D-pad gesture: left controller at your head, left Y
+held, and right stick left/right. The selected-platform marker is hidden
+when there is no matching surface or closer geometry blocks it.
 
-Both symbols are this project's own artwork. The originals are embedded in
-the layer from `core/assets/`; the copies under `docs/` are reduced for the
-documents.
+In the minecart, the imported turnip or fallback crosshair marks the nearest
+reported collision point along the shot's initial direction. Without a hit,
+it uses the existing distant aim point. It does not predict the curved flight
+of the projectile. Aim with the right controller or the game's right stick;
+the right trigger fires (Y on the gamepad, or ZR). In first person, hold Y
+to aim with the right stick. The minecart marker appears only while riding.
 
 ## Switching camera modes
 
