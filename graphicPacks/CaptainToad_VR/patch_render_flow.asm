@@ -105,6 +105,10 @@ b rrAfterSecondDraw
 
 0x02420F54 = rrAfterBeforeCalc:
 rrBeforeCalc:
+; Synthetic microphone input expires unless this calc validates the pose packet.
+lis r12, mbState@ha
+li r11, 0
+stw r11, mbState@l(r12)
 ; Complete the submitted second eye BEFORE game calc reuses effect data.
 ; Ported from the SM3DW stereo pack (rrBeforeCalc at 024DB300): without it
 ; the second eye of the previous frame is still on the GPU while calc
@@ -333,6 +337,40 @@ lwz r11, 8(r8)
 cmpw r7, r11
 bne rrPoseLatchDone
 stw r7, 0(r12)
+; Accept the gesture only from this validated controller snapshot. Four calc
+; frames without a new controller generation expire it (including host loss).
+lis r9, mbState@ha
+addi r9, r9, mbState@l
+lwz r11, 0(r10)
+cmpwi r11, 0
+beq mbLatchDone
+lwz r7, 4(r9)
+cmpw r7, r11
+beq mbRepeated
+stw r11, 4(r9)
+li r7, 0
+b mbAgeReady
+mbRepeated:
+lwz r7, 8(r9)
+cmpwi r7, 4
+bge mbLatchDone
+addi r7, r7, 1
+mbAgeReady:
+stw r7, 8(r9)
+cmpwi r7, 4
+bge mbLatchDone
+lis r11, rrEnabled@ha
+lwz r11, rrEnabled@l(r11)
+cmpwi r11, 1
+bne mbLatchDone
+; No located-hand check: the host sends only this bit for an untracked hand,
+; so microphone blowing also works with a gamepad and no controllers.
+lwz r11, 140(r10)
+andi. r11, r11, 0x40 ; kPadBlow, independent of VPAD buttons
+beq mbLatchDone
+li r11, 1
+stw r11, 0(r9)
+mbLatchDone:
 rrPoseLatchDone:
 lis r9, rrSlot@ha
 addi r9, r9, rrSlot@l
@@ -9337,6 +9375,16 @@ gpPoint:
 .int 0x43160000 ; 150
 
 
+; Controller gesture state. No samples or native microphone state are modified.
+mbState:
+.int 0 ; active this calc
+.int 0 ; last accepted controller generation
+.int 0 ; repeated-generation age, saturates at four
+mbVolume:
+.float 3300.0 ; strong input in the game's raw microphone-volume units
+mbUnitVolume:
+.float 1.0
+
 [CaptainToad_Headlamp_V16]
 moduleMatches = 0x1B377483
 .origin = codecave
@@ -9619,3 +9667,96 @@ moduleMatches = 0x9E0461E7, 0x0576A725
 ; Keep native lighting where this spotlight layout has not been verified.
 hlCaptureView:
 blr
+
+[VR_BlowGesture_Verified]
+moduleMatches = 0x1B377483
+.origin = codecave
+; Keep native microphone processing when the right-hand gesture is inactive.
+; Facade-entry hooks also work when no audio device is configured.
+mbGetRaw:
+lis r12, mbState@ha
+lwz r12, mbState@l(r12)
+cmpwi r12, 1
+bne mbGetRawNative
+lis r12, rrEnabled@ha
+lwz r12, rrEnabled@l(r12)
+cmpwi r12, 1
+bne mbGetRawNative
+lis r12, mbVolume@ha
+lfs f1, mbVolume@l(r12)
+blr
+mbGetRawNative:
+mflr r0
+b mbGetRawResume
+0x023FEBB4 = mbGetRawResume:
+0x023FEBB0 = ba mbGetRaw
+
+mbGetNormalized:
+lis r12, mbState@ha
+lwz r12, mbState@l(r12)
+cmpwi r12, 1
+bne mbGetNormalizedNative
+lis r12, rrEnabled@ha
+lwz r12, rrEnabled@l(r12)
+cmpwi r12, 1
+bne mbGetNormalizedNative
+lis r12, mbUnitVolume@ha
+lfs f1, mbUnitVolume@l(r12)
+blr
+mbGetNormalizedNative:
+mflr r0
+b mbGetNormalizedResume
+0x023FEC6C = mbGetNormalizedResume:
+0x023FEC68 = ba mbGetNormalized
+
+mbGetLoud:
+lis r12, mbState@ha
+lwz r12, mbState@l(r12)
+cmpwi r12, 1
+bne mbGetLoudNative
+lis r12, rrEnabled@ha
+lwz r12, rrEnabled@l(r12)
+cmpwi r12, 1
+bne mbGetLoudNative
+li r3, 1
+blr
+mbGetLoudNative:
+mflr r0
+b mbGetLoudResume
+0x023FED24 = mbGetLoudResume:
+0x023FED20 = ba mbGetLoud
+
+mbGetFiltered:
+lis r12, mbState@ha
+lwz r12, mbState@l(r12)
+cmpwi r12, 1
+bne mbGetFilteredNative
+lis r12, rrEnabled@ha
+lwz r12, rrEnabled@l(r12)
+cmpwi r12, 1
+bne mbGetFilteredNative
+lis r12, mbVolume@ha
+lfs f1, mbVolume@l(r12)
+blr
+mbGetFilteredNative:
+mflr r0
+b mbGetFilteredResume
+0x023FEDD8 = mbGetFilteredResume:
+0x023FEDD4 = ba mbGetFiltered
+
+mbGetDetected:
+lis r12, mbState@ha
+lwz r12, mbState@l(r12)
+cmpwi r12, 1
+bne mbGetDetectedNative
+lis r12, rrEnabled@ha
+lwz r12, rrEnabled@l(r12)
+cmpwi r12, 1
+bne mbGetDetectedNative
+li r3, 1
+blr
+mbGetDetectedNative:
+mflr r0
+b mbGetDetectedResume
+0x023FEE90 = mbGetDetectedResume:
+0x023FEE8C = ba mbGetDetected

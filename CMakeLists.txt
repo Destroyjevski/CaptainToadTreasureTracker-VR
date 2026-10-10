@@ -12,6 +12,7 @@ add_library(cemuvr_layer SHARED
     core/src/profile_host.cpp
     core/src/xr_core.cpp
     core/src/xr_actions.cpp
+    core/src/mic_blow_capture.cpp
     core/touch_icon.rc
     core/cemuvr_layer.def
 )
@@ -25,6 +26,14 @@ set_target_properties(cemuvr_layer PROPERTIES OUTPUT_NAME cemuvr_layer)
 option(CEMUVR_BUILD_TESTS "Build pose transport regression tests" OFF)
 if(CEMUVR_BUILD_TESTS)
     enable_testing()
+    add_executable(head_blow_gesture_test core/tests/head_blow_gesture_test.cpp)
+    target_compile_features(head_blow_gesture_test PRIVATE cxx_std_17)
+    target_include_directories(head_blow_gesture_test PRIVATE core/include)
+    add_test(NAME head_blow_gesture COMMAND head_blow_gesture_test)
+    add_executable(mic_blow_detector_test core/tests/mic_blow_detector_test.cpp)
+    target_compile_features(mic_blow_detector_test PRIVATE cxx_std_17)
+    target_include_directories(mic_blow_detector_test PRIVATE core/include)
+    add_test(NAME mic_blow_detector COMMAND mic_blow_detector_test)
     add_executable(touch_preview_test core/tests/touch_preview_test.cpp)
     target_compile_features(touch_preview_test PRIVATE cxx_std_17)
     target_include_directories(touch_preview_test PRIVATE core/include)

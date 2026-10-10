@@ -9,9 +9,9 @@
 - For the default 120 FPS preset, use a 120 Hz headset refresh rate.
 - Close Cemu before starting a VR session.
 
-## Install Alpha 1.2
+## Install Alpha 1.3
 
-1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.2-install.zip`.
+1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.3-install.zip`.
 2. Copy its **`CaptainToad-VR`** folder into your Cemu folder, beside `Cemu.exe`.
 3. Open that folder and run **`Start-VR.cmd`**. The game starts in diorama mode.
 4. Launch the game from Cemu's game list.
@@ -101,6 +101,47 @@ hold its trigger. In first person the hand is already visible while aiming,
 including when aiming at an enemy for touch-stunning. Release the trigger to
 end the touch. In the minecart, point the right controller to aim and press
 its trigger to fire, including in first person.
+
+### Blowing
+
+Blow into your headset microphone as you would into the GamePad, for example to
+raise the propeller platforms. The mod recognises blowing itself, so nothing
+needs to be set up in Cemu. It listens on the Windows default recording device,
+which is usually the headset microphone while Virtual Desktop or SteamVR is
+running. With wireless streaming, enable microphone forwarding in your
+streaming software. This works with VR controllers and with a gamepad.
+
+Blow steadily and directly onto the microphone; blowing counts after about a
+quarter of a second. Short puffs, speaking, whistling and hissing do not count,
+and while you talk, blowing is paused until you have been quiet for a moment.
+This strictness is deliberate, so that talking does not blow in the game. If you
+find it too strict, please report it, or use the right-controller gesture below.
+
+The audio is analysed in memory in 10 ms steps and then discarded. The mod does
+not record, save or send audio. Windows shows Cemu as using the microphone
+during the session. To change this, edit `Start-VR.cmd`:
+
+- `set "CEMUVR_BLOW_MIC=0"` switches microphone detection off.
+- `set "CEMUVR_BLOW_MIC=Headset"` uses the first recording device whose name
+  contains "Headset" instead of the default device.
+- Adding `set "CEMUVR_BLOW_MIC_DB=-55"` makes detection more sensitive
+  (default -45).
+
+Speech/noise filtering in the headset or streaming software can weaken blowing.
+If it is not recognised, switch that filtering off or use the gesture below.
+Cemu's own **Microphone (Experimental)** setting is not needed. If it is set, it
+keeps working alongside.
+
+As an alternative, hold the **right controller near your headset** for a moment.
+A short vibration confirms activation. Keep it there to blow, then move it away
+to stop. This works alongside the microphone, without a mapped button.
+The left-controller D-pad gesture is unchanged. Tracking/focus loss cancels the
+gesture, and it requires a new short hold after tracking returns.
+
+Blowing by microphone and gesture is currently enabled for the locally verified
+European v16 game module. Other modules retain their native microphone input.
+The same recognition was tested in Super Mario 3D World VR with a Quest 3
+through Virtual Desktop; in Captain Toad it has been checked offline so far.
 
 ### Camera behaviour with either input device
 

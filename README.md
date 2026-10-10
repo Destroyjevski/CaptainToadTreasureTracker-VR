@@ -1,6 +1,6 @@
 # Captain Toad: Treasure Tracker VR
 
-**Alpha 1.2** · Windows x64 · Cemu · OpenXR
+**Alpha 1.3** · Windows x64 · Cemu · OpenXR
 
 Stereo rendering and six-degree-of-freedom head tracking for the Wii U
 version of **Captain Toad: Treasure Tracker**. Play with a gamepad or VR
@@ -26,6 +26,16 @@ menus are shown on a screen that stays fixed in the room.
 
 All modes include room-anchored menus and HUD, head tracking, and the VR
 controllers as the GamePad, touch screen included.
+
+## New in Alpha 1.3
+
+- **Blowing.** Blow steadily into your headset microphone to raise the
+  propeller platforms, or hold the right controller near your headset.
+  Speech does not count as blowing. Works with VR controllers and with a
+  gamepad; no microphone setup in Cemu is needed.
+- The microphone is analysed in memory only; nothing is recorded, saved or sent.
+  It can be switched off in `Start-VR.cmd`.
+- Available for the European game with update v16.
 
 ## New in Alpha 1.2
 
@@ -92,7 +102,7 @@ see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
 
-1. Download the **Alpha 1.2 installation ZIP** from [Releases](../../releases).
+1. Download the **Alpha 1.3 installation ZIP** from [Releases](../../releases).
 2. Place its `CaptainToad-VR` folder beside `Cemu.exe`.
 3. Close Cemu and run `Start-VR.cmd`.
 4. Open Captain Toad: Treasure Tracker in Cemu and play with your gamepad or VR controllers.
@@ -162,9 +172,17 @@ gamepad table above. Other controller layouts have not been validated.
 | Left trigger, left grip, menu button | ZL, L, Plus |
 | Right grip held | R; show the blue touch preview; hover over a target to show its action symbol |
 | Right A, right B | A, B |
+| Right controller held to your headset | Blow, for example to raise propeller platforms; a short vibration confirms it |
 
 See [INSTALL.md](INSTALL.md#controls) for the full bindings and separate
 gamepad and VR-controller instructions.
+
+### Microphone with either input device
+
+Blow steadily into your headset microphone to blow in the game, for example
+to raise the propeller platforms, with a gamepad or VR controllers. Short
+puffs and speech do not count. See [INSTALL.md](INSTALL.md#blowing) for the
+microphone used and how to switch it off.
 
 ### Locally generated game markers
 

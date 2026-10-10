@@ -1,3 +1,26 @@
+# Alpha 1.3
+
+## Blowing
+
+- The mod listens on the Windows default recording device and recognises
+  blowing itself, for example to raise the propeller platforms; no microphone
+  setup in Cemu is needed. Works with VR controllers and with a gamepad.
+- Speech does not count: blowing has to be steady and is paused while you
+  talk. This strictness is deliberate. If you find it too strict, please
+  report it.
+- Alternative without the microphone: hold the right controller near your
+  headset until it vibrates.
+- Audio is analysed in memory in 10 ms steps and discarded; nothing is
+  recorded, saved or sent. `set "CEMUVR_BLOW_MIC=0"` in `Start-VR.cmd`
+  switches the microphone off.
+- Enabled for the European game with update v16.
+
+The recognition is the same as in Super Mario 3D World VR, where it was tested
+with a Quest 3 through Virtual Desktop; in Captain Toad it has been checked
+offline so far. All previous features remain included.
+
+---
+
 # Alpha 1.2
 
 ## Touch preview and target symbols

@@ -903,7 +903,10 @@ void publishReferencePose(uint64_t generation) {
                 referencePoseInAnchor(candidate,handPose,unitsPerMeter,m);
             payload[base5]=_byteswap_ulong(located?1u:0u);
             for(int i=0;i<12;++i)putFloat(base5+1+i,located?m[i]:0.f);
-            payload[base5+13]=_byteswap_ulong(located?in.buttons:0u);
+            // Blowing does not need a tracked hand: the microphone works without
+            // controllers. Every other button still requires a located hand.
+            payload[base5+13]=_byteswap_ulong(located?in.buttons:
+                                              hand==1?(in.buttons&kPadBlow):0u);
             putFloat(base5+14,located?in.trigger:0.f);
             putFloat(base5+15,located?in.squeeze:0.f);
             putFloat(base5+16,located?in.stickX:0.f);

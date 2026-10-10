@@ -1,6 +1,6 @@
 # Known issues
 
-**Alpha 1.2** is intended for early testing. A full playthrough has not
+**Alpha 1.3** is intended for early testing. A full playthrough has not
 been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Rendering and performance
@@ -25,8 +25,13 @@ been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
   minecart aiming. Not every interaction in every level has been tested.
 - The minecart marker indicates the initial shot direction, not the curved
   projectile trajectory. Without a hit, it uses the existing distant aim point.
-- The GamePad's microphone has no equivalent on a VR controller. A pad button
-  that Cemu assigns to blowing keeps working from the pad.
+- Blowing into the microphone is recognised deliberately strictly, so that
+  talking does not blow in the game: blow steadily and directly onto the
+  microphone. If you find it too strict, please report it, or hold the right
+  controller near your headset instead.
+- Speech or noise filtering in the headset or streaming software can weaken
+  blowing. The recognition was tested in Super Mario 3D World VR with a Quest 3
+  through Virtual Desktop; in Captain Toad it has been checked offline so far.
 
 See [Installation: Controls](INSTALL.md#controls) for the required controller
 setup and the separate gamepad and VR-controller bindings.

@@ -207,6 +207,7 @@ bool XrCore::createActions() {
 
     m_actionsReady = true;
     CVR_INFO("xr.action", "ready=1 profiles=%u hands=2 space=stage", accepted);
+    m_micBlow.start();
     return true;
 }
 
@@ -215,7 +216,11 @@ bool XrCore::createActions() {
 // ---------------------------------------------------------------------------
 
 void XrCore::syncActions() {
-    if (!m_actionsReady || m_session == XR_NULL_HANDLE) return;
+    if (!m_actionsReady || m_session == XR_NULL_HANDLE) {
+        m_headBlow.reset();
+        m_hands[1].buttons &= ~kPadBlow;
+        return;
+    }
 
     XrActiveActionSet active{m_actionSet, XR_NULL_PATH};
     XrActionsSyncInfo si{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -223,6 +228,7 @@ void XrCore::syncActions() {
     si.activeActionSets = &active;
     const XrResult r = xrSyncActions(m_session, &si);
     if (XR_FAILED(r)) {
+        m_headBlow.reset();
         // XR_SESSION_NOT_FOCUSED ist keine Stoerung, sondern der Normalfall,
         // solange ein Systemmenue vorn ist. Dann bleibt der letzte Zustand
         // stehen, und der Gast sieht keine zufaellig gedrueckte Taste.
@@ -233,6 +239,7 @@ void XrCore::syncActions() {
         return;
     }
 
+    bool rightTracked = false;
     for (int hand = 0; hand < 2; ++hand) {
         ControllerInput state{};
         XrActionStateGetInfo gi{XR_TYPE_ACTION_STATE_GET_INFO};
@@ -284,10 +291,39 @@ void XrCore::syncActions() {
             if (XR_SUCCEEDED(lr) && (location.locationFlags & need) == need) {
                 state.pose = location.pose;
                 state.valid = 1;
+                if (hand == 1) {
+                    constexpr auto tracked = XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
+                                             XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
+                    rightTracked = (location.locationFlags & tracked) == tracked;
+                }
             }
         }
 
         m_hands[hand] = state;
+    }
+    // Both poses were located at this frame's predicted display time.
+    const auto& a = m_views[0].pose.position;
+    const auto& b = m_views[1].pose.position;
+    const auto& hand = m_hands[1].pose.position;
+    const float dx = hand.x - (a.x + b.x) * 0.5f;
+    const float dy = hand.y - (a.y + b.y) * 0.5f;
+    const float dz = hand.z - (a.z + b.z) * 0.5f;
+    const bool wasBlowing = m_headBlow.active();
+    const bool blowing = m_headBlow.update(r == XR_SUCCESS && m_viewsValid &&
+        m_viewsTracked && rightTracked, dx*dx + dy*dy + dz*dz,
+        m_frameState.predictedDisplayTime);
+    // Blowing heard on the microphone counts like the gesture, with or without
+    // controllers; only the gesture confirms itself with a vibration.
+    if (blowing || m_micBlow.blowing()) m_hands[1].buttons |= kPadBlow;
+    if (blowing && !wasBlowing && m_actHaptic != XR_NULL_HANDLE) {
+        XrHapticVibration shake{XR_TYPE_HAPTIC_VIBRATION};
+        shake.duration = 40 * 1000 * 1000;
+        shake.frequency = XR_FREQUENCY_UNSPECIFIED;
+        shake.amplitude = 0.5f;
+        XrHapticActionInfo info{XR_TYPE_HAPTIC_ACTION_INFO};
+        info.action = m_actHaptic;
+        info.subactionPath = m_handPath[1];
+        xrApplyHapticFeedback(m_session, &info, (const XrHapticBaseHeader*)&shake);
     }
     ++m_handGeneration;
     pulseAtHead();
@@ -337,6 +373,8 @@ void XrCore::destroyActions() {
     m_actPrimary = m_actSecondary = m_actStickClick = m_actMenu = XR_NULL_HANDLE;
     m_actHaptic = XR_NULL_HANDLE;
     m_handAtHead = false;
+    m_headBlow.reset();
+    m_micBlow.stop();
     m_hands = {};
     m_actionsReady = false;
 }

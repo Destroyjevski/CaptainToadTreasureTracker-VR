@@ -22,6 +22,8 @@
 #include <openxr/openxr_platform.h>
 
 #include "cemuvr/profile.h"
+#include "cemuvr/head_blow_gesture.h"
+#include "cemuvr/mic_blow_capture.h"
 
 namespace cemuvr {
 
@@ -185,6 +187,8 @@ enum : uint32_t {
     kPadMenu      = 1u << 3,
     kPadTrigger   = 1u << 4,   // aus dem Analogwert abgeleitet
     kPadSqueeze   = 1u << 5,
+    kPadBlow      = 1u << 6,   // right controller held near the headset, or blowing
+                               // heard on the microphone; sent even without hand tracking
 };
 
 // Was eine Hand gerade meldet. Die Pose steht in DEMSELBEN Bezugsraum wie die
@@ -412,6 +416,8 @@ private:
     // Wahr, solange die linke Hand am Kopf ist. Nur die steigende Flanke
     // loest aus - ein Puls, der sich wiederholt, waere ein Brummen.
     bool        m_handAtHead{false};
+    HeadBlowGesture m_headBlow;
+    MicBlowCapture  m_micBlow;
     std::array<XrPath, 2>  m_handPath{{XR_NULL_PATH, XR_NULL_PATH}};
     std::array<XrSpace, 2> m_handSpace{{XR_NULL_HANDLE, XR_NULL_HANDLE}};
     std::array<ControllerInput, 2> m_hands{};
