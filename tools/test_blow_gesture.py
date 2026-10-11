@@ -63,7 +63,7 @@ class CPU:
         return self.mem[labels[label]+offset]
     def run(self, pc):
         if isinstance(pc,str): pc=labels[pc]
-        for _ in range(300):
+        for _ in range(1000):
             if pc not in instructions: return pc
             op,*a = instructions[pc]
             nxt=pc+4
@@ -81,6 +81,8 @@ class CPU:
                 self.cr=(x>y)-(x<y)
             elif op=="andi.":
                 value=self.r[reg(a[1])] & self.value(a[2]); self.r[reg(a[0])]=value; self.cr=(value>0)
+            elif op=="ori":
+                self.r[reg(a[0])] = (self.r[reg(a[1])] | (self.value(a[2]) & 0xffff)) & 0xffffffff
             elif op=="mflr": self.r[reg(a[0])] = self.lr
             elif op=="blr": return self.lr
             elif op in ("b","beq","bne","bge"):
@@ -128,20 +130,46 @@ c.set("rrEnabled",0,0);check(c.frame(3)==0)
 
 # Each getter must tail-resume native microphone code when inactive and leave
 # all native arguments intact. Active hooks only replace their return value.
-for name in [n for n in labels if re.fullmatch(r"mbGet\w+",n) and not n.endswith(("Native","Resume"))]:
+# Every call counts once in the host-visible demand block and records its
+# caller; only the volatile r0, r11 and r12 may change for that.
+check(c.get("mbDemand",0)==0x4D425131 and c.get("mbDemand",4)==5)
+check(labels["mbCallers"]==labels["mbDemand"]+32) # object blow checks at +28, then the table
+check(c.get("mbCallers",64*8)==0xFFFFFFFF) # sentinel after 64 entries
+own={"mbGetRaw":12,"mbGetNormalized":12,"mbGetLoud":16,"mbGetFiltered":20,"mbGetDetected":24}
+index={"mbGetRaw":0,"mbGetNormalized":0,"mbGetLoud":1,"mbGetFiltered":2,"mbGetDetected":3}
+getters=[n for n in labels if re.fullmatch(r"mbGet\w+",n) and not n.endswith(("Native","Resume"))]
+check(sorted(getters)==sorted(own))
+for name in getters:
     is_float=name in ("mbGetRaw","mbGetFiltered","mbGetNormalized")
+    key=(0x7ffffffc|index[name])
     for active in (0,1):
         for enabled in (0,1):
             c=CPU();c.set("mbState",0,active);c.set("rrEnabled",0,enabled)
+            c.set("mbDemand",8,0xffffffff) # the total wraps
+            for offset in (12,16,20,24): c.set("mbDemand",offset,100+offset)
+            c.set("mbCallers",0,0x02001001);c.set("mbCallers",4,7) # another caller stays as it is
             before=c.r.copy();floats=c.f.copy();mem=c.mem.copy()
             destination=c.run(name)
+            check(c.get("mbDemand",8)==0)
+            for offset in (12,16,20,24): # only this getter's own count moves
+                check(c.get("mbDemand",offset)==100+offset+(1 if offset==own[name] else 0))
+            check(c.get("mbCallers",0)==0x02001001 and c.get("mbCallers",4)==7)
+            check(c.get("mbCallers",8)==key and c.get("mbCallers",12)==1) # claimed the first free entry
+            c.lr=0x7ffffffc;c.run(name) # the same caller again counts in the same entry
+            check(c.get("mbCallers",8)==key and c.get("mbCallers",12)==2 and c.get("mbCallers",16)==0)
+            # Every Toad blow check is a game object's: only 'detected' is demand.
+            check(c.get("mbDemand",28)==(2 if name=="mbGetDetected" else 0))
+            for e in range(64): mem[labels["mbCallers"]+e*8]=c.mem[labels["mbCallers"]+e*8];mem[labels["mbCallers"]+e*8+4]=c.mem[labels["mbCallers"]+e*8+4]
+            mem[labels["mbDemand"]+8]=1
+            mem[labels["mbDemand"]+own[name]]=100+own[name]+2
+            mem[labels["mbDemand"]+28]=c.get("mbDemand",28)
+            c.r[11]=before[11]
             if active and enabled:
                 check(destination==c.lr)
                 if is_float:
                     check(c.f[1]==(1.0 if name=="mbGetNormalized" else 3300.0))
                     check(c.r[3]==before[3])
                 else: check(c.r[3]==1)
-                check(c.r[0]==before[0])
             else:
                 check(destination==labels[name+"Resume"])
                 check(c.r[0]==c.lr)
@@ -150,6 +178,29 @@ for name in [n for n in labels if re.fullmatch(r"mbGet\w+",n) and not n.endswith
             check(c.r[1:3]==before[1:3] and c.r[4:12]==before[4:12] and c.r[13:]==before[13:])
             check(c.f[:1]==floats[:1] and c.f[2:]==floats[2:])
             check(c.mem==mem) # no game objects, sample buffers, stack or mic state modified
+
+# Microphone demand counts blow checks from game objects; the microphone sound
+# player ('MicInput', also on the title screen) is recorded but is no demand.
+for lr,demand in ((0x02001840,0),(0x020018C4,0),(0x0200183C,1),(0x02001844,1),(0x020018C0,1),
+                  (0x020018C8,1),(0x020019C4,1),(0x02000840,1),
+                  (0x0214DC24,1),(0x02180AA4,1),(0x021A9AFC,1),(0x021AAAB8,1)):
+    for active in (0,1):
+        c=CPU();c.set("mbState",0,active);c.set("rrEnabled",0,1);c.lr=lr
+        c.run("mbGetDetected")
+        check(c.get("mbDemand",28)==demand and c.get("mbDemand",24)==1 and c.get("mbDemand",8)==1)
+        check(c.get("mbCallers",0)==(lr|3) and c.get("mbCallers",4)==1)
+        for name in ("mbGetRaw","mbGetNormalized","mbGetLoud","mbGetFiltered"): # never demand
+            c.lr=lr;c.run(name)
+        check(c.get("mbDemand",28)==demand)
+
+# A full table leaves every entry untouched and still lets the hook run on.
+c=CPU()
+for e in range(64): c.set("mbCallers",e*8,0x02000000+e*4);c.set("mbCallers",e*8+4,e)
+full=[c.get("mbCallers",o) for o in range(0,64*8+4,4)]
+c.set("mbState",0,0);c.set("rrEnabled",0,1)
+check(c.run("mbGetDetected")==labels["mbGetDetectedResume"])
+check([c.get("mbCallers",o) for o in range(0,64*8+4,4)]==full)
+check(c.get("mbDemand",28)==1) # still counted as demand
 
 # The state update is reached only AFTER the existing seqlock acceptance.
 check(source.index("stw r11, mbState@l(r12)") < source.index("; Pose packet"))

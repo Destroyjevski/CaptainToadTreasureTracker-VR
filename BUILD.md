@@ -64,7 +64,7 @@ python -m unittest discover -s tools -p test_distribution_assets.py
 The files under `graphicPacks/` are assembled by Cemu when it starts the game.
 No game executable is required to compile the C++ layer.
 
-## Package Alpha 1.3
+## Package Alpha 1.3b
 
 ```powershell
 python tools/package.py --dll build/Release/cemuvr_layer.dll

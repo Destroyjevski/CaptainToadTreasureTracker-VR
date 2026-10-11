@@ -1,6 +1,6 @@
 [Definition]
 titleIds = 0005000010180700,0005000010180600
-name = FPS Unlock - 60 Hz gameplay (EUR v16 only)
+name = FPS Unlock - 60 Hz gameplay (update v16)
 path = "Captain Toad Treasure Tracker/Mods/FPS Unlock"
 description = Experimental: higher render rate, native 60 Hz simulation. Ported from the SM3DW FPS Unlock; Update v16. No motion interpolation.
 version = 7

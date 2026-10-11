@@ -287,6 +287,9 @@ public:
     // Steigt mit jedem abgeholten Satz. Der Gast erkennt daran einen alten.
     uint32_t controllerGeneration() const { return m_handGeneration; }
     bool controllersReady() const { return m_actionsReady; }
+    // The game queried its microphone (counted by the blow hooks). Only then
+    // does the microphone open; five seconds without a query close it again.
+    void noteMicDemand() { m_micBlow.noteDemand(); }
     // One fixed anchor for every world-fixed panel (surface, HUD canvas):
     // taken ONCE from the first tracked head pose, never re-taken on mode
     // changes; only an explicit recenter renews it (2026-09-21).
@@ -401,6 +404,7 @@ private:
     bool createActions();
     void syncActions();
     void pulseAtHead();
+    void logInteractionProfiles();
     void destroyActions();
 
     XrActionSet m_actionSet{XR_NULL_HANDLE};

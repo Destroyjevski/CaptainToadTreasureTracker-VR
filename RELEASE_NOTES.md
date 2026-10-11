@@ -1,3 +1,25 @@
+# Alpha 1.3b
+
+Hotfix.
+
+- The microphone now opens only while a level asks for blowing and closes
+  again five seconds after the game stops asking. Before VR starts, on the
+  title screen and in levels without blowing it stays closed. A small sound
+  player that only plays the game's feedback sound for microphone input does
+  not count as asking.
+- Blowing and the head-directed headlamp are now enabled for all game modules
+  the mod supports (update v16). They use the same code locations as the rest
+  of the mod, which already runs on these versions. Only the European game was
+  available for testing.
+- The FPS pack was labelled "EUR v16 only" although it covers every supported
+  version; the label is corrected.
+
+Checked in the test setup with the European game: VR starts, all packs are
+active, and the microphone stays closed on the title screen and in the demo.
+All Alpha 1.3 features remain included.
+
+---
+
 # Alpha 1.3
 
 ## Blowing

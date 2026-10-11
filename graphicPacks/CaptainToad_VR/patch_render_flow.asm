@@ -9386,7 +9386,7 @@ mbUnitVolume:
 .float 1.0
 
 [CaptainToad_Headlamp_V16]
-moduleMatches = 0x1B377483
+moduleMatches = 0x1B377483, 0x9E0461E7, 0x0576A725
 .origin = codecave
 
 ; The spotlight layout and native hook are verified for this executable revision.
@@ -9660,20 +9660,184 @@ blr
 hlSpot:
 .int 0 ; current player spotlight identity, never dereferenced by the update hook
 
-[CaptainToad_Headlamp_Passthrough]
-moduleMatches = 0x9E0461E7, 0x0576A725
-.origin = codecave
-
-; Keep native lighting where this spotlight layout has not been verified.
-hlCaptureView:
-blr
-
 [VR_BlowGesture_Verified]
-moduleMatches = 0x1B377483
+moduleMatches = 0x1B377483, 0x9E0461E7, 0x0576A725
 .origin = codecave
+; Host-visible count of the game's microphone queries. The layer opens the
+; microphone only while game objects in a level check for blowing.
+mbDemand:
+.int 0x4D425131 ; 'MBQ1'
+.int 5 ; layout version
+.int 0 ; all queries, wraps
+.int 0 ; raw and normalized volume queries
+.int 0 ; loud queries
+.int 0 ; filtered volume queries
+.int 0 ; detected queries
+.int 0 ; blow checks by game objects, the microphone demand
+mbCallers:
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0
+.int 0xFFFFFFFF ; sentinel, never a caller key
 ; Keep native microphone processing when the right-hand gesture is inactive.
 ; Facade-entry hooks also work when no audio device is configured.
 mbGetRaw:
+; Count the game's microphone query for the host (r11/r12 are volatile here).
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 8(r12)
+addi r11, r11, 1
+stw r11, 8(r12)
+lwz r11, 12(r12)
+addi r11, r11, 1
+stw r11, 12(r12)
+; Record which game function asked (its return address, getter in bits 0-1).
+mflr r11
+ori r11, r11, 0
+lis r12, mbCallers@ha
+addi r12, r12, mbCallers@l
+mbFindRaw:
+lwz r0, 0(r12)
+cmpw r0, r11
+beq mbHitRaw
+cmpwi r0, 0
+beq mbClaimRaw
+cmpwi r0, -1
+beq mbCountedRaw
+addi r12, r12, 8
+b mbFindRaw
+mbClaimRaw:
+stw r11, 0(r12)
+mbHitRaw:
+lwz r11, 4(r12)
+addi r11, r11, 1
+stw r11, 4(r12)
+mbCountedRaw:
 lis r12, mbState@ha
 lwz r12, mbState@l(r12)
 cmpwi r12, 1
@@ -9692,6 +9856,37 @@ b mbGetRawResume
 0x023FEBB0 = ba mbGetRaw
 
 mbGetNormalized:
+; Count the game's microphone query for the host (r11/r12 are volatile here).
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 8(r12)
+addi r11, r11, 1
+stw r11, 8(r12)
+lwz r11, 12(r12)
+addi r11, r11, 1
+stw r11, 12(r12)
+; Record which game function asked (its return address, getter in bits 0-1).
+mflr r11
+ori r11, r11, 0
+lis r12, mbCallers@ha
+addi r12, r12, mbCallers@l
+mbFindNormalized:
+lwz r0, 0(r12)
+cmpw r0, r11
+beq mbHitNormalized
+cmpwi r0, 0
+beq mbClaimNormalized
+cmpwi r0, -1
+beq mbCountedNormalized
+addi r12, r12, 8
+b mbFindNormalized
+mbClaimNormalized:
+stw r11, 0(r12)
+mbHitNormalized:
+lwz r11, 4(r12)
+addi r11, r11, 1
+stw r11, 4(r12)
+mbCountedNormalized:
 lis r12, mbState@ha
 lwz r12, mbState@l(r12)
 cmpwi r12, 1
@@ -9710,6 +9905,37 @@ b mbGetNormalizedResume
 0x023FEC68 = ba mbGetNormalized
 
 mbGetLoud:
+; Count the game's microphone query for the host (r11/r12 are volatile here).
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 8(r12)
+addi r11, r11, 1
+stw r11, 8(r12)
+lwz r11, 16(r12)
+addi r11, r11, 1
+stw r11, 16(r12)
+; Record which game function asked (its return address, getter in bits 0-1).
+mflr r11
+ori r11, r11, 1
+lis r12, mbCallers@ha
+addi r12, r12, mbCallers@l
+mbFindLoud:
+lwz r0, 0(r12)
+cmpw r0, r11
+beq mbHitLoud
+cmpwi r0, 0
+beq mbClaimLoud
+cmpwi r0, -1
+beq mbCountedLoud
+addi r12, r12, 8
+b mbFindLoud
+mbClaimLoud:
+stw r11, 0(r12)
+mbHitLoud:
+lwz r11, 4(r12)
+addi r11, r11, 1
+stw r11, 4(r12)
+mbCountedLoud:
 lis r12, mbState@ha
 lwz r12, mbState@l(r12)
 cmpwi r12, 1
@@ -9727,6 +9953,37 @@ b mbGetLoudResume
 0x023FED20 = ba mbGetLoud
 
 mbGetFiltered:
+; Count the game's microphone query for the host (r11/r12 are volatile here).
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 8(r12)
+addi r11, r11, 1
+stw r11, 8(r12)
+lwz r11, 20(r12)
+addi r11, r11, 1
+stw r11, 20(r12)
+; Record which game function asked (its return address, getter in bits 0-1).
+mflr r11
+ori r11, r11, 2
+lis r12, mbCallers@ha
+addi r12, r12, mbCallers@l
+mbFindFiltered:
+lwz r0, 0(r12)
+cmpw r0, r11
+beq mbHitFiltered
+cmpwi r0, 0
+beq mbClaimFiltered
+cmpwi r0, -1
+beq mbCountedFiltered
+addi r12, r12, 8
+b mbFindFiltered
+mbClaimFiltered:
+stw r11, 0(r12)
+mbHitFiltered:
+lwz r11, 4(r12)
+addi r11, r11, 1
+stw r11, 4(r12)
+mbCountedFiltered:
 lis r12, mbState@ha
 lwz r12, mbState@l(r12)
 cmpwi r12, 1
@@ -9745,6 +10002,55 @@ b mbGetFilteredResume
 0x023FEDD4 = ba mbGetFiltered
 
 mbGetDetected:
+; Count the game's microphone query for the host (r11/r12 are volatile here).
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 8(r12)
+addi r11, r11, 1
+stw r11, 8(r12)
+lwz r11, 24(r12)
+addi r11, r11, 1
+stw r11, 24(r12)
+; Record which game function asked (its return address, getter in bits 0-1).
+mflr r11
+ori r11, r11, 3
+lis r12, mbCallers@ha
+addi r12, r12, mbCallers@l
+mbFindDetected:
+lwz r0, 0(r12)
+cmpw r0, r11
+beq mbHitDetected
+cmpwi r0, 0
+beq mbClaimDetected
+cmpwi r0, -1
+beq mbCountedDetected
+addi r12, r12, 8
+b mbFindDetected
+mbClaimDetected:
+stw r11, 0(r12)
+mbHitDetected:
+lwz r11, 4(r12)
+addi r11, r11, 1
+stw r11, 4(r12)
+mbCountedDetected:
+; Demand for the host: blow checks by game objects that react to blowing.
+; The microphone sound player ('MicInput'), which only plays a feedback sound
+; and also runs on the title screen, does not count.
+mflr r11
+lis r12, 0x0200
+ori r12, r12, 0x1840
+cmpw r11, r12
+beq mbObjectBlowDone
+lis r12, 0x0200
+ori r12, r12, 0x18C4
+cmpw r11, r12
+beq mbObjectBlowDone
+lis r12, mbDemand@ha
+addi r12, r12, mbDemand@l
+lwz r11, 28(r12)
+addi r11, r11, 1
+stw r11, 28(r12)
+mbObjectBlowDone:
 lis r12, mbState@ha
 lwz r12, mbState@l(r12)
 cmpwi r12, 1

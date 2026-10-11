@@ -1,6 +1,6 @@
 # Known issues
 
-**Alpha 1.3** is intended for early testing. A full playthrough has not
+**Alpha 1.3b** is intended for early testing. A full playthrough has not
 been validated, and compatibility testing covers one Windows/Cemu/VDXR setup.
 
 ## Rendering and performance

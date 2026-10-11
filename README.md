@@ -1,6 +1,6 @@
 # Captain Toad: Treasure Tracker VR
 
-**Alpha 1.3** · Windows x64 · Cemu · OpenXR
+**Alpha 1.3b** · Windows x64 · Cemu · OpenXR
 
 Stereo rendering and six-degree-of-freedom head tracking for the Wii U
 version of **Captain Toad: Treasure Tracker**. Play with a gamepad or VR
@@ -27,6 +27,16 @@ menus are shown on a screen that stays fixed in the room.
 All modes include room-anchored menus and HUD, head tracking, and the VR
 controllers as the GamePad, touch screen included.
 
+## New in Alpha 1.3b
+
+- **Microphone only where it is needed:** the microphone opens only while a
+  level asks for blowing and closes again a few seconds after you leave it.
+  Before VR starts, on the title screen and in levels without blowing it stays
+  closed.
+- Blowing and the head-directed headlamp are now enabled for every game version
+  the mod supports, not only the European one. Only the European game was
+  available for testing.
+
 ## New in Alpha 1.3
 
 - **Blowing.** Blow steadily into your headset microphone to raise the
@@ -35,7 +45,6 @@ controllers as the GamePad, touch screen included.
   gamepad; no microphone setup in Cemu is needed.
 - The microphone is analysed in memory only; nothing is recorded, saved or sent.
   It can be switched off in `Start-VR.cmd`.
-- Available for the European game with update v16.
 
 ## New in Alpha 1.2
 
@@ -102,7 +111,7 @@ see [known issues](KNOWN-ISSUES.md).
 
 ## Get started
 
-1. Download the **Alpha 1.3 installation ZIP** from [Releases](../../releases).
+1. Download the **Alpha 1.3b installation ZIP** from [Releases](../../releases).
 2. Place its `CaptainToad-VR` folder beside `Cemu.exe`.
 3. Close Cemu and run `Start-VR.cmd`.
 4. Open Captain Toad: Treasure Tracker in Cemu and play with your gamepad or VR controllers.

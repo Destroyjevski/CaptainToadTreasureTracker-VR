@@ -9,9 +9,9 @@
 - For the default 120 FPS preset, use a 120 Hz headset refresh rate.
 - Close Cemu before starting a VR session.
 
-## Install Alpha 1.3
+## Install Alpha 1.3b
 
-1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.3-install.zip`.
+1. Extract `CaptainToadTreasureTracker-VR-Alpha-1.3b-install.zip`.
 2. Copy its **`CaptainToad-VR`** folder into your Cemu folder, beside `Cemu.exe`.
 3. Open that folder and run **`Start-VR.cmd`**. The game starts in diorama mode.
 4. Launch the game from Cemu's game list.
@@ -117,9 +117,13 @@ and while you talk, blowing is paused until you have been quiet for a moment.
 This strictness is deliberate, so that talking does not blow in the game. If you
 find it too strict, please report it, or use the right-controller gesture below.
 
+The microphone opens only while a level asks for blowing and closes again
+five seconds after the game stops asking. Before VR starts, on the title screen
+and in levels without blowing it stays closed. Only then does Windows show Cemu
+as using the microphone.
+
 The audio is analysed in memory in 10 ms steps and then discarded. The mod does
-not record, save or send audio. Windows shows Cemu as using the microphone
-during the session. To change this, edit `Start-VR.cmd`:
+not record, save or send audio. To change the microphone, edit `Start-VR.cmd`:
 
 - `set "CEMUVR_BLOW_MIC=0"` switches microphone detection off.
 - `set "CEMUVR_BLOW_MIC=Headset"` uses the first recording device whose name
@@ -138,8 +142,8 @@ to stop. This works alongside the microphone, without a mapped button.
 The left-controller D-pad gesture is unchanged. Tracking/focus loss cancels the
 gesture, and it requires a new short hold after tracking returns.
 
-Blowing by microphone and gesture is currently enabled for the locally verified
-European v16 game module. Other modules retain their native microphone input.
+Blowing by microphone and gesture is enabled for all supported game modules
+(update v16); only the European game was available for testing.
 The same recognition was tested in Super Mario 3D World VR with a Quest 3
 through Virtual Desktop; in Captain Toad it has been checked offline so far.
 
